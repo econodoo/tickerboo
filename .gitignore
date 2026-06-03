@@ -1,0 +1,50 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+venv/
+env/
+.venv/
+*.egg-info/
+dist/
+build/
+.eggs/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Environment
+.env
+!.env.example
+
+# Data & logs (never commit these)
+data/*.db
+data/*.db-wal
+data/*.db-shm
+data/*.parquet
+data/downloads/
+logs/*.log
+logs/*.log.*
+
+# OS
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# IDE
+.vscode/
+.idea/
+*.iml
+
+# Node / addin
+addin/node_modules/
+addin/dist/
+addin/.parcel-cache/
+
+# Temp
+*.tmp
+*.bak

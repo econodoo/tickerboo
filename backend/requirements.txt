@@ -1,0 +1,32 @@
+# TickerBoo backend dependencies
+
+# Web framework
+fastapi>=0.111.0
+uvicorn[standard]>=0.29.0
+
+# HTTP client (async)
+httpx>=0.27.0
+
+# Data
+pandas>=2.2.0
+numpy>=1.26.0
+
+# Database
+sqlalchemy>=2.0.0
+
+# Technical indicators (requires system TA-Lib: apt install ta-lib or brew install ta-lib)
+# TA-Lib>=0.4.28
+
+# Scheduling (async pre-compute jobs)
+apscheduler>=3.10.0
+
+# Config / env
+python-dotenv>=1.0.0
+
+# Compression / parsing
+lxml>=5.2.0
+
+# Testing
+pytest>=8.0.0
+pytest-asyncio>=0.23.0
+httpx  # already listed above, pytest client uses it too

@@ -1,0 +1,34 @@
+[Unit]
+Description=TickerBoo — VN stock data & analytics API
+After=network.target
+Wants=network-online.target
+
+[Service]
+Type=exec
+# ── EDIT THIS: path to your repo on the server ──────────────────────────────
+WorkingDirectory=/home/ubuntu/tickerboo
+ExecStart=/bin/bash /home/ubuntu/tickerboo/scripts/launch_server.sh
+# ─────────────────────────────────────────────────────────────────────────────
+
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+# Security hardening (optional but good practice)
+NoNewPrivileges=yes
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target
+
+# ── Deploy instructions ──────────────────────────────────────────────────────
+# 1. Edit WorkingDirectory and ExecStart above to match your server path
+# 2. sudo cp systemd/tickerboo.service /etc/systemd/system/
+# 3. sudo systemctl daemon-reload
+# 4. sudo systemctl enable tickerboo
+# 5. sudo systemctl start tickerboo
+# 6. sudo systemctl status tickerboo
+#
+# Logs:  sudo journalctl -u tickerboo -f
+#        tail -f /your/repo/logs/tickerboo.log
