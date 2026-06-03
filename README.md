@@ -51,6 +51,9 @@ See [docs/deployment.md](docs/deployment.md) for nginx + systemd setup at `tmc.v
 - [x] **Iter 5** — Office.js Excel add-in (manifest, auto-gen functions.json/js, taskpane, install guide)
 - [x] **Iter 6** — Function call analytics (DB logging, /admin/analytics endpoint)
 - [x] **Iter 7** — 5 metadata functions (TICKERS, LAST_DATE, TICKER_INFO, DATA_STATUS, BAR_COUNT) + icons
+- [x] **Iter 8** — Trading functions (CHANGE, CHANGE_PCT, HIGH52W, LOW52W, FROM_HIGH/LOW52W) + landing page
+- [x] **Iter 9** — TB.SCREEN screener with mini-DSL (RSI<30 AND MA20>MA50) + screen results page
+- [x] **Iter 10** — TB.SNAPSHOT + TB.SNAPSHOT_TABLE (one-formula dashboard)
 - [ ] **Iter 4** — Async pre-compute jobs
 - [ ] **Iter 5** — Office.js add-in skeleton + TB.* functions
 - [ ] **Iter 6** — Sidebar function tester

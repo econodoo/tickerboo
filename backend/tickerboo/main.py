@@ -125,8 +125,10 @@ from .api.functions import router as functions_router
 from .api.admin import router as admin_router
 from .api.chart import router as chart_router
 from .api.addin import router as addin_router
+from .api.screen import router as screen_router
 
 app.include_router(functions_router)
 app.include_router(admin_router)
 app.include_router(chart_router)
 app.include_router(addin_router)
+app.include_router(screen_router)
