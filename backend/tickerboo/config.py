@@ -20,7 +20,7 @@ class Settings:
     port: int         = int(os.getenv("TICKERBOO_PORT", "8688"))
     host: str         = os.getenv("TICKERBOO_HOST", "0.0.0.0")
     root_path: str    = os.getenv("TICKERBOO_ROOT_PATH", "")   # "/tb" on server
-    version: str      = "0.4.0"
+    version: str      = "0.5.0"
 
     # ── Storage ───────────────────────────────────────────────────────────
     db_path: Path     = Path(os.getenv("TICKERBOO_DB_PATH", "./data/tickerboo.db"))

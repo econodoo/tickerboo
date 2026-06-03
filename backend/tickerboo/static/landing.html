@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TickerBoo — VN Stock Data for Excel</title>
+<style>
+  :root { --p:#185B35; --a:#22c55e; }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font:15px/1.6 'Segoe UI',-apple-system,sans-serif; background:#0f1117; color:#e5e7eb; }
+
+  .hero { text-align:center; padding:60px 24px 40px; }
+  .hero .eyes { font-size:72px; line-height:1; margin-bottom:16px; animation:peek 3s ease-in-out infinite; }
+  @keyframes peek { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
+  .hero h1 { font-size:42px; font-weight:900; color:#fff; letter-spacing:-1px; }
+  .hero h1 span { color:var(--a); }
+  .hero .sub { color:#6b7280; font-size:16px; max-width:500px; margin:8px auto 24px; }
+
+  .stats { display:flex; gap:24px; justify-content:center; flex-wrap:wrap; margin-bottom:32px; }
+  .stat { text-align:center; }
+  .stat .num { font-size:28px; font-weight:900; color:var(--a); }
+  .stat .label { font-size:11px; color:#6b7280; text-transform:uppercase; letter-spacing:.05em; }
+
+  .cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:12px; max-width:800px; margin:0 auto 40px; padding:0 24px; }
+  .card { background:#161922; border:1px solid #1e2230; border-radius:12px; padding:16px; text-decoration:none; color:inherit; transition:border-color .2s; }
+  .card:hover { border-color:var(--a); }
+  .card .icon { font-size:24px; margin-bottom:6px; }
+  .card h3 { font-size:14px; color:#fff; margin-bottom:4px; }
+  .card p { font-size:12px; color:#6b7280; }
+
+  .formula-bar { max-width:600px; margin:0 auto 40px; padding:0 24px; }
+  .formula-bar h3 { text-align:center; font-size:14px; color:#9ca3af; margin-bottom:12px; }
+  .formulas { display:flex; flex-direction:column; gap:6px; }
+  .f { background:#161922; border:1px solid #1e2230; border-radius:8px; padding:8px 14px; font:13px 'Consolas',monospace; display:flex; justify-content:space-between; align-items:center; }
+  .f .fn { color:var(--a); }
+  .f .val { color:#6b7280; font-size:12px; }
+
+  .footer { text-align:center; padding:24px; color:#374151; font-size:12px; border-top:1px solid #1e2230; }
+  .footer a { color:#6b7280; }
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <div class="eyes">🫣</div>
+  <h1>Ticker<span>Boo</span></h1>
+  <p class="sub">VN stock market data & analytics for Excel. 70+ TB.* functions. Free forever.</p>
+  <div class="stats" id="stats">
+    <div class="stat"><div class="num" id="fnCount">—</div><div class="label">Functions</div></div>
+    <div class="stat"><div class="num" id="tkCount">—</div><div class="label">Tickers</div></div>
+    <div class="stat"><div class="num" id="barCount">—</div><div class="label">Daily bars</div></div>
+    <div class="stat"><div class="num">0</div><div class="label">Cost</div></div>
+  </div>
+</div>
+
+<div class="cards">
+  <a class="card" href="/addin/install">
+    <div class="icon">📥</div>
+    <h3>Install Add-in</h3>
+    <p>Sideload into Excel in 2 minutes. Type =TB. and go.</p>
+  </a>
+  <a class="card" href="/admin/playground">
+    <div class="icon">🧪</div>
+    <h3>Playground</h3>
+    <p>Test all functions in the browser. No Excel needed.</p>
+  </a>
+  <a class="card" href="/chart/VNM?overlays=MA20,RSI,BB">
+    <div class="icon">📈</div>
+    <h3>Charts</h3>
+    <p>Interactive candlestick charts with indicator overlays.</p>
+  </a>
+  <a class="card" href="/docs">
+    <div class="icon">📄</div>
+    <h3>API Docs</h3>
+    <p>OpenAPI auto-docs. POST /call, GET /series, GET /chart.</p>
+  </a>
+</div>
+
+<div class="formula-bar">
+  <h3>Do you TickerBoo?</h3>
+  <div class="formulas">
+    <div class="f"><span class="fn">=TB.PRICE("VNM")</span><span class="val">Latest closing price</span></div>
+    <div class="f"><span class="fn">=TB.RSI("FPT", "1d", 14)</span><span class="val">RSI indicator</span></div>
+    <div class="f"><span class="fn">=TB.CANDLES("HPG", "1d", 20)</span><span class="val">20-bar table (spills)</span></div>
+    <div class="f"><span class="fn">=TB.ICHIMOKU("VNM")</span><span class="val">5-component cloud</span></div>
+    <div class="f"><span class="fn">=TB.CHANGE_PCT("VCB")</span><span class="val">Daily % change</span></div>
+    <div class="f"><span class="fn">=TB.CHART("VNM","1d",200,"RSI")</span><span class="val">Chart URL</span></div>
+  </div>
+</div>
+
+<div class="footer">
+  <a href="https://github.com/econodoo/tickerboo">GitHub</a> ·
+  <a href="https://deaitinh.com">Để AI Tính</a> ·
+  Data from CafeF · Charts by Lightweight Charts · Indicators by TA-Lib
+</div>
+
+<script>
+const API = location.origin;
+fetch(`${API}/functions`).then(r=>r.json()).then(d => {
+  document.getElementById('fnCount').textContent = d.count || 0;
+});
+fetch(`${API}/admin/sync/status`).then(r=>r.json()).then(d => {
+  const db = d.db || {};
+  document.getElementById('tkCount').textContent = db.tickers || 0;
+  document.getElementById('barCount').textContent = (db.total_bars||0).toLocaleString();
+}).catch(()=>{});
+</script>
+</body>
+</html>

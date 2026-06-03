@@ -107,12 +107,16 @@ async def health():
 
 @app.get("/", tags=["system"], include_in_schema=False)
 async def root():
+    from pathlib import Path
+    from fastapi.responses import HTMLResponse
+    html_path = Path(__file__).parent / "static" / "landing.html"
+    if html_path.exists():
+        return HTMLResponse(html_path.read_text(encoding="utf-8"))
     return {
         "message": "TickerBoo API",
         "docs": "/docs",
-        "health": "/health",
         "playground": "/admin/playground",
-        "chart_example": "/chart/VNM?tf=1d&n=200&overlays=MA20,RSI,BB",
+        "install": "/addin/install",
     }
 
 
