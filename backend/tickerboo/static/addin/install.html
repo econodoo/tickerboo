@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Install TickerBoo — Excel Add-in</title>
+<style>
+  :root { --p:#185B35; --a:#22c55e; }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font:15px/1.6 'Segoe UI',-apple-system,sans-serif; background:#0f1117; color:#e5e7eb; }
+  .hero { text-align:center; padding:48px 24px 32px; background:linear-gradient(135deg,#0d3d22,#185B35); }
+  .hero .eyes { font-size:56px; margin-bottom:12px; }
+  .hero h1 { font-size:32px; font-weight:900; color:#fff; }
+  .hero h1 span { color:#22c55e; }
+  .hero p { color:#9ca3af; max-width:500px; margin:8px auto 0; font-size:14px; }
+  .container { max-width:700px; margin:0 auto; padding:32px 24px; }
+
+  .step { margin-bottom:28px; display:flex; gap:16px; }
+  .step-num { width:36px; height:36px; border-radius:50%; background:var(--p); color:#fff; font-weight:800; font-size:16px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .step-body h3 { font-size:16px; color:#fff; margin-bottom:4px; }
+  .step-body p { color:#9ca3af; font-size:13px; }
+  .step-body code { background:#1e293b; padding:2px 8px; border-radius:4px; font-size:12px; color:#22c55e; word-break:break-all; }
+  .step-body .url-box { background:#1e293b; border:1px solid #334155; border-radius:8px; padding:10px 14px; margin:8px 0; font:13px 'Consolas',monospace; color:#22c55e; display:flex; align-items:center; gap:8px; }
+  .step-body .url-box button { background:#334155; border:none; color:#e5e7eb; padding:4px 10px; border-radius:4px; cursor:pointer; font-size:11px; }
+  .step-body .url-box button:hover { background:#475569; }
+
+  .try-it { background:#185B35; border:2px solid #22c55e; border-radius:12px; padding:20px; margin:32px 0; text-align:center; }
+  .try-it h3 { color:#22c55e; font-size:18px; margin-bottom:8px; }
+  .try-it .formula { font:20px 'Consolas',monospace; color:#fff; background:#0d3d22; padding:8px 16px; border-radius:8px; display:inline-block; margin:8px 0; }
+  .try-it p { color:#9ca3af; font-size:13px; }
+
+  .links { display:flex; gap:12px; justify-content:center; margin:24px 0; flex-wrap:wrap; }
+  .links a { background:#1e293b; color:#22c55e; text-decoration:none; padding:8px 16px; border-radius:8px; font-size:13px; border:1px solid #334155; }
+  .links a:hover { background:#334155; }
+
+  .fn-preview { margin:24px 0; }
+  .fn-preview h3 { color:#fff; font-size:16px; margin-bottom:12px; }
+  .fn-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(140px, 1fr)); gap:6px; }
+  .fn-tag { background:#1e293b; border:1px solid #334155; border-radius:6px; padding:4px 8px; font:11px 'Consolas',monospace; color:#9ca3af; }
+  .fn-tag .name { color:#22c55e; }
+
+  .footer { text-align:center; padding:24px; color:#374151; font-size:12px; border-top:1px solid #1e2230; margin-top:32px; }
+  .footer a { color:#6b7280; }
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <div class="eyes">🫣</div>
+  <h1>Install <span>TickerBoo</span></h1>
+  <p>65+ TB.* functions for VN stock market data right inside Excel. Free forever.</p>
+</div>
+
+<div class="container">
+
+  <div class="step">
+    <div class="step-num">1</div>
+    <div class="step-body">
+      <h3>Open Excel → Insert → Add-ins</h3>
+      <p>Click <strong>Insert</strong> tab → <strong>My Add-ins</strong> → <strong>Upload My Add-in</strong> (or "Manage My Add-ins").</p>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-num">2</div>
+    <div class="step-body">
+      <h3>Upload the manifest URL</h3>
+      <p>Paste this URL and click Upload:</p>
+      <div class="url-box" id="manifestUrl">
+        <span id="urlText"></span>
+        <button onclick="copyUrl()">Copy</button>
+      </div>
+      <p>Excel will validate and install the add-in. You'll see the TickerBoo button in the Home tab.</p>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-num">3</div>
+    <div class="step-body">
+      <h3>Start using TB.* formulas</h3>
+      <p>Type any <code>=TB.</code> formula in a cell. Excel's autocomplete will show all available functions.</p>
+    </div>
+  </div>
+
+  <div class="try-it">
+    <h3>Try these first:</h3>
+    <div class="formula">=TB.PRICE("VNM")</div>
+    <div class="formula">=TB.RSI("FPT", "1d", 14)</div>
+    <div class="formula">=TB.CANDLES("HPG", "1d", 20)</div>
+    <p>CANDLES spills a 20×6 table. RSI returns a single number. PRICE returns the latest close.</p>
+  </div>
+
+  <div class="fn-preview">
+    <h3>All 65+ functions:</h3>
+    <div class="fn-grid" id="fnGrid">
+      <!-- Filled by JS -->
+    </div>
+  </div>
+
+  <div class="links">
+    <a href="/admin/playground">🧪 Playground</a>
+    <a href="/chart/VNM?overlays=MA20,RSI,BB" target="_blank">📈 Chart Demo</a>
+    <a href="/docs" target="_blank">📄 API Docs</a>
+    <a href="https://github.com/econodoo/tickerboo" target="_blank">🐙 GitHub</a>
+  </div>
+
+</div>
+
+<div class="footer">
+  Made by <a href="https://deaitinh.com">Để AI Tính</a> · Data from CafeF · Powered by TA-Lib
+</div>
+
+<script>
+// Set manifest URL based on current host
+const base = location.origin;
+document.getElementById('urlText').textContent = `${base}/addin/manifest.xml`;
+
+function copyUrl() {
+  navigator.clipboard?.writeText(`${base}/addin/manifest.xml`);
+  document.querySelector('.url-box button').textContent = '✓ Copied';
+  setTimeout(() => document.querySelector('.url-box button').textContent = 'Copy', 2000);
+}
+
+// Load function names
+fetch(`${base}/functions`).then(r=>r.json()).then(d => {
+  const grid = document.getElementById('fnGrid');
+  (d.functions || []).forEach(f => {
+    const el = document.createElement('div');
+    el.className = 'fn-tag';
+    el.innerHTML = `<span class="name">TB.${f.name}</span>`;
+    grid.appendChild(el);
+  });
+});
+</script>
+</body>
+</html>

@@ -169,6 +169,16 @@ async def taskpane(request: Request):
     return HTMLResponse("<h2>Taskpane not built yet</h2>", status_code=404)
 
 
+@router.get("/install", response_class=HTMLResponse)
+async def install_guide():
+    """Add-in install guide — step-by-step sideloading instructions."""
+    from pathlib import Path
+    html_path = Path(__file__).parent.parent / "static" / "addin" / "install.html"
+    if html_path.exists():
+        return HTMLResponse(html_path.read_text(encoding="utf-8"))
+    return HTMLResponse("<h2>Install guide not found</h2>", status_code=404)
+
+
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
 def _get_base_url(request: Request) -> str:

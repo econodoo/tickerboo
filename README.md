@@ -48,6 +48,9 @@ See [docs/deployment.md](docs/deployment.md) for nginx + systemd setup at `tmc.v
 - [x] **Iter 2** — Mock data seeder (15 tickers × 500 days), all functions verified
 - [x] **Iter 3** — 54 TA-Lib indicators (RSI, MACD, BB, Ichimoku, SuperTrend, 14 shortcuts)
 - [x] **Iter 4** — Interactive charts (Lightweight Charts), /series endpoint, TB.CHART function
+- [x] **Iter 5** — Office.js Excel add-in (manifest, auto-gen functions.json/js, taskpane, install guide)
+- [x] **Iter 6** — Function call analytics (DB logging, /admin/analytics endpoint)
+- [x] **Iter 7** — 5 metadata functions (TICKERS, LAST_DATE, TICKER_INFO, DATA_STATUS, BAR_COUNT) + icons
 - [ ] **Iter 4** — Async pre-compute jobs
 - [ ] **Iter 5** — Office.js add-in skeleton + TB.* functions
 - [ ] **Iter 6** — Sidebar function tester
