@@ -56,6 +56,15 @@ async def sync_full_blocking():
     return {"status": "completed", "result": result}
 
 
+@router.post("/admin/seed", tags=["admin"])
+async def seed_mock_data():
+    """Seed DB with realistic mock data (15 tickers × 500 days). For dev/testing."""
+    from tickerboo.sources.seeder import MockSeeder
+    seeder = MockSeeder()
+    result = await seeder.seed()
+    return {"status": "completed", "result": result}
+
+
 @router.post("/admin/sync/catchup-blocking", tags=["admin"])
 async def sync_catchup_blocking():
     """Catchup sync (blocking)."""
