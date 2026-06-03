@@ -22,10 +22,10 @@
 git clone https://github.com/econodoo/tickerboo.git
 cd tickerboo/backend
 pip install -r requirements.txt --break-system-packages
-bash run.sh                           # starts on :8688
+python manage.py serve               # starts on :8688
 
 # Load data (pick one):
-curl -X POST localhost:8688/admin/seed           # mock data — instant
+python manage.py seed                 # mock data — instant
 curl -X POST localhost:8688/admin/sync/full      # real CafeF data — ~2 min
 
 # Open in browser:
