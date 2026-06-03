@@ -121,6 +121,56 @@ async def db_stats():
     }
 
 
+@router.get("/admin/analytics", tags=["admin"])
+async def analytics():
+    """Function call analytics — most-used functions, recent calls, performance."""
+    # Most-called functions
+    top_fns = await fetch_all(
+        """SELECT function_name, COUNT(*) as calls,
+                  ROUND(AVG(duration_ms), 1) as avg_ms,
+                  ROUND(MAX(duration_ms), 1) as max_ms
+           FROM function_calls
+           GROUP BY function_name
+           ORDER BY calls DESC
+           LIMIT 20"""
+    )
+
+    # Most-queried tickers
+    top_tickers = await fetch_all(
+        """SELECT ticker, COUNT(*) as calls
+           FROM function_calls
+           WHERE ticker IS NOT NULL
+           GROUP BY ticker
+           ORDER BY calls DESC
+           LIMIT 10"""
+    )
+
+    # Recent calls
+    recent = await fetch_all(
+        """SELECT function_name, ticker, timeframe,
+                  ROUND(duration_ms, 1) as ms, called_at
+           FROM function_calls
+           ORDER BY id DESC
+           LIMIT 20"""
+    )
+
+    # Totals
+    totals = await fetch_one(
+        """SELECT COUNT(*) as total_calls,
+                  ROUND(AVG(duration_ms), 1) as avg_ms,
+                  COUNT(DISTINCT function_name) as unique_fns,
+                  COUNT(DISTINCT ticker) as unique_tickers
+           FROM function_calls"""
+    )
+
+    return {
+        "totals": dict(totals) if totals else {},
+        "top_functions": [dict(r) for r in top_fns],
+        "top_tickers": [dict(r) for r in top_tickers],
+        "recent_calls": [dict(r) for r in recent],
+    }
+
+
 # ── Playground ───────────────────────────────────────────────────────────────
 
 @router.get("/admin/playground", tags=["admin"], response_class=HTMLResponse)

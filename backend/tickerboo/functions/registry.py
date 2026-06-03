@@ -161,7 +161,29 @@ def _import_submodules(package_name: str, package_dir: Path):
 
 def _log_call(name: str, params: dict, duration_ms: float):
     """Store function call analytics (async-safe, best-effort)."""
-    # TODO: async write to function_calls table
-    # For now, just log
+    import asyncio
+    import json as _json
+
     ticker = params.get("ticker", "?")
+    tf = params.get("tf", "")
     log.debug("CALL %s(%s) → %.1f ms", name, ticker, duration_ms)
+
+    # Fire-and-forget DB write
+    async def _write():
+        try:
+            from tickerboo.db.session import execute
+            await execute(
+                """INSERT INTO function_calls
+                   (function_name, ticker, timeframe, params_json, duration_ms)
+                   VALUES (?, ?, ?, ?, ?)""",
+                (name, ticker if ticker != "?" else None, tf or None,
+                 _json.dumps(params), duration_ms),
+            )
+        except Exception:
+            pass  # never block on analytics
+
+    try:
+        loop = asyncio.get_running_loop()
+        loop.create_task(_write())
+    except RuntimeError:
+        pass  # no event loop, skip

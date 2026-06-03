@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TickerBoo</title>
+<script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+<style>
+  :root { --p:#185B35; --a:#22c55e; --bg:#f9fafb; --sh:#fff; --r:8px; }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font:12px/1.4 -apple-system,'Segoe UI',sans-serif; background:var(--bg); color:#1f2937; }
+
+  /* ── Header ── */
+  .hdr { background:var(--p); color:#fff; padding:10px 12px; display:flex; align-items:center; gap:6px; }
+  .hdr h1 { font-size:14px; font-weight:800; }
+  .hdr .dot { width:7px; height:7px; border-radius:50%; margin-left:auto; }
+  .hdr .dot.ok { background:#22c55e; }
+  .hdr .dot.err { background:#ef4444; }
+
+  /* ── Search ── */
+  .search { padding:8px; }
+  .search input { width:100%; padding:6px 8px; border:1px solid #d1d5db; border-radius:6px; font-size:12px; outline:none; }
+  .search input:focus { border-color:var(--a); box-shadow:0 0 0 2px rgba(34,197,94,.15); }
+
+  /* ── Function list ── */
+  .flist { overflow-y:auto; max-height:calc(100vh - 200px); }
+  .cat { border-bottom:1px solid #f3f4f6; }
+  .cat-hdr { padding:4px 12px; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:#9ca3af; cursor:pointer; display:flex; justify-content:space-between; }
+  .cat-hdr:hover { color:var(--p); }
+  .cat-body { display:none; }
+  .cat-body.open { display:block; }
+  .fn { padding:4px 12px 4px 16px; font-size:11px; cursor:pointer; display:flex; align-items:center; gap:4px; }
+  .fn:hover { background:#ecfdf5; }
+  .fn.active { background:#dcfce7; font-weight:700; color:var(--p); }
+  .fn .tier { font-size:8px; padding:1px 3px; border-radius:3px; background:#f3f4f6; color:#9ca3af; }
+
+  /* ── Detail panel ── */
+  .detail { display:none; padding:8px 12px; border-top:2px solid var(--a); background:var(--sh); }
+  .detail.show { display:block; }
+  .detail h3 { font-size:13px; color:var(--p); margin-bottom:4px; }
+  .detail .desc { font-size:11px; color:#6b7280; margin-bottom:8px; }
+  .detail .formula { font:11px 'Consolas',monospace; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:4px; padding:6px 8px; margin-bottom:8px; color:var(--p); word-break:break-all; }
+  .detail .params { display:grid; grid-template-columns:70px 1fr; gap:4px 6px; margin-bottom:8px; }
+  .detail label { font-size:10px; font-weight:600; text-align:right; color:#6b7280; padding-top:4px; }
+  .detail input, .detail select { padding:4px 6px; border:1px solid #d1d5db; border-radius:4px; font-size:11px; }
+  .detail input:focus, .detail select:focus { outline:none; border-color:var(--a); }
+
+  /* ── Buttons ── */
+  .btns { display:flex; gap:4px; margin-bottom:6px; }
+  .btn { padding:5px 10px; border:none; border-radius:6px; font-size:11px; font-weight:600; cursor:pointer; }
+  .btn-go { background:var(--p); color:#fff; flex:1; }
+  .btn-go:hover { background:#0d3d22; }
+  .btn-sm { background:#f3f4f6; color:#374151; }
+  .btn-sm:hover { background:#e5e7eb; }
+
+  /* ── Footer ── */
+  .footer { padding:8px 12px; border-top:1px solid #e5e7eb; display:flex; gap:6px; font-size:10px; }
+  .footer a { color:var(--p); text-decoration:none; }
+
+  /* ── Result ── */
+  .result { font-size:11px; background:#f9fafb; border:1px solid #e5e7eb; border-radius:4px; padding:6px 8px; min-height:30px; max-height:120px; overflow-y:auto; }
+  .result .val { font-size:16px; font-weight:800; color:var(--p); }
+  .result .err { color:#dc2626; }
+</style>
+</head>
+<body>
+
+<div class="hdr">
+  <span>🫣</span>
+  <h1>TickerBoo</h1>
+  <span class="dot" id="statusDot"></span>
+</div>
+
+<div class="search">
+  <input type="text" id="searchInput" placeholder="Search functions..." oninput="filterFns(this.value)">
+</div>
+
+<div class="flist" id="fnList"></div>
+
+<div class="detail" id="detailPanel"></div>
+
+<div class="footer">
+  <a href="#" onclick="openChart()">📈 Chart</a>
+  <a href="/admin/playground" target="_blank">🧪 Playground</a>
+  <a href="/docs" target="_blank">📄 API</a>
+</div>
+
+<script>
+/* global Office, Excel */
+
+let allFunctions = [];
+let currentFn = null;
+let officeReady = false;
+const API = location.origin;
+
+// ── Office init ─────────────────────────────────────────────────────────────
+Office.onReady((info) => {
+  officeReady = info.host === Office.HostType.Excel;
+  document.getElementById('statusDot').className = 'dot ok';
+  loadFunctions();
+});
+
+// If Office.js not available (opened in browser), still load functions
+setTimeout(() => {
+  if (!allFunctions.length) {
+    document.getElementById('statusDot').className = 'dot ok';
+    loadFunctions();
+  }
+}, 2000);
+
+// ── Load functions ──────────────────────────────────────────────────────────
+async function loadFunctions() {
+  try {
+    const r = await fetch(`${API}/functions`);
+    const d = await r.json();
+    allFunctions = d.functions || [];
+    renderList(allFunctions);
+  } catch (e) {
+    document.getElementById('statusDot').className = 'dot err';
+  }
+}
+
+function renderList(fns) {
+  const byCat = {};
+  fns.forEach(f => (byCat[f.category] = byCat[f.category] || []).push(f));
+
+  const emojis = { price:'📊', ma:'📈', momentum:'🔄', volatility:'💧', volume:'🔊', composite:'🎯', shortcut:'⚡', chart:'📈' };
+  const list = document.getElementById('fnList');
+  list.innerHTML = '';
+
+  Object.entries(byCat).sort().forEach(([cat, cfns]) => {
+    const div = document.createElement('div');
+    div.className = 'cat';
+    div.innerHTML = `
+      <div class="cat-hdr" onclick="this.nextElementSibling.classList.toggle('open')">
+        ${emojis[cat]||'📦'} ${cat} <span>${cfns.length}</span>
+      </div>
+      <div class="cat-body open">
+        ${cfns.map(f => `<div class="fn" data-fn="${f.name}" onclick="selectFn('${f.name}')">
+          TB.${f.name} <span class="tier">${f.tier === 'advanced' ? '★' : ''}</span>
+        </div>`).join('')}
+      </div>`;
+    list.appendChild(div);
+  });
+}
+
+function filterFns(q) {
+  if (!q) return renderList(allFunctions);
+  const filtered = allFunctions.filter(f =>
+    f.name.toLowerCase().includes(q.toLowerCase()) ||
+    f.description.toLowerCase().includes(q.toLowerCase())
+  );
+  renderList(filtered);
+}
+
+// ── Select function ─────────────────────────────────────────────────────────
+function selectFn(name) {
+  const fn = allFunctions.find(f => f.name === name);
+  if (!fn) return;
+  currentFn = fn;
+
+  document.querySelectorAll('.fn').forEach(el => el.classList.toggle('active', el.dataset.fn === name));
+
+  const panel = document.getElementById('detailPanel');
+  panel.className = 'detail show';
+  panel.innerHTML = `
+    <h3>TB.${fn.name}</h3>
+    <div class="desc">${fn.description || ''}</div>
+    <div class="params" id="pForm">
+      ${fn.params.map(p => `
+        <label>${p.name}${p.required?' *':''}</label>
+        ${p.choices
+          ? `<select name="${p.name}">${p.choices.map(c=>`<option ${c===p.default?'selected':''}>${c}</option>`).join('')}</select>`
+          : `<input name="${p.name}" placeholder="${p.default||''}" value="${p.required?'':''}"/>`}
+      `).join('')}
+    </div>
+    <div class="btns">
+      <button class="btn btn-go" onclick="insertFormula()">▸ Insert formula</button>
+      <button class="btn btn-sm" onclick="testFn()">Test</button>
+    </div>
+    <div class="result" id="result" style="display:none"></div>
+    <div class="formula" id="formulaPreview">${fn.formula || ''}</div>
+  `;
+
+  // Live-update formula preview on input change
+  panel.querySelectorAll('input,select').forEach(el => el.addEventListener('input', updatePreview));
+  updatePreview();
+}
+
+function updatePreview() {
+  if (!currentFn) return;
+  const form = document.getElementById('pForm');
+  const parts = [];
+  currentFn.params.forEach(p => {
+    const el = form.querySelector(`[name="${p.name}"]`);
+    const v = el?.value;
+    if (v) {
+      parts.push(p.type === 'string' || p.type === 'date' ? `"${v}"` : v);
+    }
+  });
+  const preview = document.getElementById('formulaPreview');
+  if (preview) preview.textContent = `=TB.${currentFn.name}(${parts.join(', ')})`;
+}
+
+// ── Insert formula into active cell ─────────────────────────────────────────
+async function insertFormula() {
+  if (!currentFn) return;
+  const formula = document.getElementById('formulaPreview')?.textContent;
+  if (!formula) return;
+
+  if (officeReady) {
+    try {
+      await Excel.run(async (context) => {
+        const cell = context.workbook.getActiveCell();
+        cell.formulas = [[formula]];
+        await context.sync();
+      });
+    } catch (e) {
+      console.error('Insert failed:', e);
+      // Fallback: copy to clipboard
+      navigator.clipboard?.writeText(formula);
+    }
+  } else {
+    // Not in Excel — copy to clipboard
+    navigator.clipboard?.writeText(formula);
+    const res = document.getElementById('result');
+    res.style.display = 'block';
+    res.innerHTML = '<div style="color:var(--a)">📋 Formula copied to clipboard</div>';
+  }
+}
+
+// ── Quick test ──────────────────────────────────────────────────────────────
+async function testFn() {
+  if (!currentFn) return;
+  const form = document.getElementById('pForm');
+  const args = {};
+  currentFn.params.forEach(p => {
+    const el = form.querySelector(`[name="${p.name}"]`);
+    if (el?.value) {
+      let v = el.value;
+      if (p.type === 'number') v = parseFloat(v);
+      if (p.type === 'integer') v = parseInt(v);
+      args[p.name] = v;
+    }
+  });
+
+  const res = document.getElementById('result');
+  res.style.display = 'block';
+  res.innerHTML = '<div style="color:#9ca3af">Computing...</div>';
+
+  try {
+    const r = await fetch(`${API}/call/${currentFn.name}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ args }),
+    });
+    const d = await r.json();
+    if (d.status === 'ok') {
+      const v = d.value;
+      if (typeof v === 'number') {
+        res.innerHTML = `<div class="val">${v.toLocaleString()}</div>`;
+      } else if (Array.isArray(v)) {
+        res.innerHTML = `<div style="color:#6b7280">[${typeof v[0]==='object'?v.length+' rows':v.join(', ')}]</div>`;
+      } else {
+        res.innerHTML = `<div class="val">${v}</div>`;
+      }
+    } else {
+      res.innerHTML = `<div class="err">${d.message || 'Error'}</div>`;
+    }
+  } catch (e) {
+    res.innerHTML = `<div class="err">Network error</div>`;
+  }
+}
+
+// ── Chart ───────────────────────────────────────────────────────────────────
+function openChart() {
+  const form = document.getElementById('pForm');
+  const ticker = form?.querySelector('[name="ticker"]')?.value || 'VNM';
+  const tf = form?.querySelector('[name="tf"]')?.value || '1d';
+  window.open(`${API}/chart/${ticker}?tf=${tf}&n=200&overlays=MA20,RSI,BB`, '_blank');
+}
+</script>
+</body>
+</html>
