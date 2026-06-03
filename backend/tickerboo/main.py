@@ -112,12 +112,15 @@ async def root():
         "docs": "/docs",
         "health": "/health",
         "playground": "/admin/playground",
+        "chart_example": "/chart/VNM?tf=1d&n=200&overlays=MA20,RSI,BB",
     }
 
 
 # ── Route groups ─────────────────────────────────────────────────────────────
 from .api.functions import router as functions_router
 from .api.admin import router as admin_router
+from .api.chart import router as chart_router
 
 app.include_router(functions_router)
 app.include_router(admin_router)
+app.include_router(chart_router)

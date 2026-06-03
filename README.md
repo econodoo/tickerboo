@@ -45,8 +45,9 @@ See [docs/deployment.md](docs/deployment.md) for nginx + systemd setup at `tmc.v
 
 - [x] **Iter 0** — Project skeleton, scripts, logging, health endpoint
 - [x] **Iter 1** — Plugin architecture, CafeF harvester, 10 price functions, admin playground
-- [ ] **Iter 2** — API contract, mock TF layer
-- [ ] **Iter 3** — TA-Lib indicator engine + cache
+- [x] **Iter 2** — Mock data seeder (15 tickers × 500 days), all functions verified
+- [x] **Iter 3** — 54 TA-Lib indicators (RSI, MACD, BB, Ichimoku, SuperTrend, 14 shortcuts)
+- [x] **Iter 4** — Interactive charts (Lightweight Charts), /series endpoint, TB.CHART function
 - [ ] **Iter 4** — Async pre-compute jobs
 - [ ] **Iter 5** — Office.js add-in skeleton + TB.* functions
 - [ ] **Iter 6** — Sidebar function tester
