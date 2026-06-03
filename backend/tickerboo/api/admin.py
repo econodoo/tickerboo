@@ -140,6 +140,16 @@ async def db_stats():
     }
 
 
+@router.get("/admin/dashboard", tags=["admin"])
+async def analytics_dashboard():
+    """Visual analytics dashboard — HTML page with auto-refreshing charts."""
+    from fastapi.responses import HTMLResponse
+    html_path = Path(__file__).parent.parent / "static" / "analytics.html"
+    if html_path.exists():
+        return HTMLResponse(html_path.read_text(encoding="utf-8"))
+    return HTMLResponse("<h2>Dashboard not found</h2>", status_code=404)
+
+
 @router.get("/admin/analytics", tags=["admin"])
 async def analytics():
     """Function call analytics — most-used functions, recent calls, performance."""

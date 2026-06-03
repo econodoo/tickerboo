@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Analytics — TickerBoo</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font:13px/1.5 'Segoe UI',sans-serif; background:#0f1117; color:#e5e7eb; }
+  .hdr { background:#161922; border-bottom:1px solid #1e2230; padding:12px 20px; display:flex; align-items:center; gap:12px; }
+  .hdr h1 { font-size:16px; color:#22c55e; }
+  .hdr a { color:#6b7280; text-decoration:none; font-size:12px; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:12px; padding:16px 20px; }
+  .stat { background:#161922; border:1px solid #1e2230; border-radius:8px; padding:14px; }
+  .stat .num { font-size:26px; font-weight:900; color:#22c55e; }
+  .stat .label { font-size:10px; text-transform:uppercase; letter-spacing:.05em; color:#6b7280; }
+  .section { padding:8px 20px; }
+  .section h2 { font-size:14px; color:#9ca3af; margin-bottom:8px; border-bottom:1px solid #1e2230; padding-bottom:4px; }
+  table { width:100%; border-collapse:collapse; margin-bottom:16px; }
+  th { text-align:left; padding:6px 10px; font-size:10px; text-transform:uppercase; letter-spacing:.04em; color:#6b7280; border-bottom:2px solid #1e2230; }
+  td { padding:5px 10px; border-bottom:1px solid #1e2230; font-size:12px; }
+  tr:hover { background:#161922; }
+  .fn-name { color:#22c55e; font-family:'Consolas',mono; font-weight:700; }
+  .bar-wrap { height:6px; background:#1e2230; border-radius:3px; }
+  .bar-fill { height:100%; background:#22c55e; border-radius:3px; }
+  .mono { font-family:'Consolas',mono; }
+  .dim { color:#4b5563; }
+  .footer { padding:12px 20px; color:#374151; font-size:11px; border-top:1px solid #1e2230; text-align:center; }
+  .loading { text-align:center; padding:60px; color:#6b7280; }
+</style>
+</head>
+<body>
+
+<div class="hdr">
+  <span>📉</span>
+  <h1>TickerBoo Analytics</h1>
+  <a href="/">Home</a>
+  <a href="/admin/playground">Playground</a>
+  <a href="/screen?expr=RSI%3C30">Screener</a>
+</div>
+
+<div class="grid" id="statsGrid">
+  <div class="stat"><div class="num" id="totalCalls">—</div><div class="label">Total calls</div></div>
+  <div class="stat"><div class="num" id="avgMs">—</div><div class="label">Avg latency</div></div>
+  <div class="stat"><div class="num" id="uniqueFns">—</div><div class="label">Functions used</div></div>
+  <div class="stat"><div class="num" id="uniqueTickers">—</div><div class="label">Tickers queried</div></div>
+</div>
+
+<div class="section">
+  <h2>Top functions</h2>
+  <table id="topFns"><tr><td class="loading">Loading...</td></tr></table>
+</div>
+
+<div class="section">
+  <h2>Top tickers</h2>
+  <table id="topTickers"><tr><td class="loading">Loading...</td></tr></table>
+</div>
+
+<div class="section">
+  <h2>Recent calls</h2>
+  <table id="recentCalls"><tr><td class="loading">Loading...</td></tr></table>
+</div>
+
+<div class="footer">Auto-refreshes every 30s · Data since server start</div>
+
+<script>
+const API = location.origin;
+
+async function load() {
+  try {
+    const r = await fetch(`${API}/admin/analytics`);
+    const d = await r.json();
+
+    // Totals
+    const t = d.totals || {};
+    document.getElementById('totalCalls').textContent = (t.total_calls||0).toLocaleString();
+    document.getElementById('avgMs').textContent = (t.avg_ms||0)+'ms';
+    document.getElementById('uniqueFns').textContent = t.unique_fns||0;
+    document.getElementById('uniqueTickers').textContent = t.unique_tickers||0;
+
+    // Top functions
+    const maxCalls = Math.max(...(d.top_functions||[]).map(f=>f.calls), 1);
+    document.getElementById('topFns').innerHTML = `
+      <tr><th>Function</th><th>Calls</th><th></th><th>Avg</th><th>Max</th></tr>
+      ${(d.top_functions||[]).map(f => `
+        <tr>
+          <td class="fn-name">TB.${f.function_name}</td>
+          <td class="mono">${f.calls}</td>
+          <td style="width:120px"><div class="bar-wrap"><div class="bar-fill" style="width:${f.calls/maxCalls*100}%"></div></div></td>
+          <td class="mono dim">${f.avg_ms}ms</td>
+          <td class="mono dim">${f.max_ms}ms</td>
+        </tr>
+      `).join('')}`;
+
+    // Top tickers
+    const maxTk = Math.max(...(d.top_tickers||[]).map(t=>t.calls), 1);
+    document.getElementById('topTickers').innerHTML = `
+      <tr><th>Ticker</th><th>Calls</th><th></th></tr>
+      ${(d.top_tickers||[]).map(t => `
+        <tr>
+          <td class="fn-name">${t.ticker||'—'}</td>
+          <td class="mono">${t.calls}</td>
+          <td style="width:160px"><div class="bar-wrap"><div class="bar-fill" style="width:${t.calls/maxTk*100}%"></div></div></td>
+        </tr>
+      `).join('')}`;
+
+    // Recent calls
+    document.getElementById('recentCalls').innerHTML = `
+      <tr><th>Function</th><th>Ticker</th><th>TF</th><th>Latency</th><th>Time</th></tr>
+      ${(d.recent_calls||[]).slice(0,15).map(c => `
+        <tr>
+          <td class="fn-name">TB.${c.function_name}</td>
+          <td class="mono">${c.ticker||'—'}</td>
+          <td class="dim">${c.timeframe||''}</td>
+          <td class="mono">${c.ms}ms</td>
+          <td class="dim">${(c.called_at||'').slice(11,19)}</td>
+        </tr>
+      `).join('')}`;
+
+  } catch(e) {
+    document.getElementById('topFns').innerHTML = '<tr><td style="color:#ef4444">Failed to load analytics</td></tr>';
+  }
+}
+
+load();
+setInterval(load, 30000);
+</script>
+</body>
+</html>
