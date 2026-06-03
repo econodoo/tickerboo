@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TickerBoo Playground</title>
+<style>
+  :root { --p:#185B35; --a:#22c55e; --t:#111827; --bg:#f9fafb; --sh:#fff; --r:10px; }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font:14px/1.5 'Segoe UI',system-ui,sans-serif; background:var(--bg); color:var(--t); display:flex; height:100vh; }
+
+  /* ── Sidebar ── */
+  .sidebar { width:260px; background:var(--sh); border-right:1px solid #e5e7eb; display:flex; flex-direction:column; flex-shrink:0; }
+  .sidebar-header { background:var(--p); color:#fff; padding:16px; font-weight:800; font-size:18px; display:flex; align-items:center; gap:8px; }
+  .sidebar-header small { font-weight:500; font-size:11px; opacity:.6; }
+  .cat-group { border-bottom:1px solid #f3f4f6; }
+  .cat-label { padding:8px 16px; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:#9ca3af; cursor:pointer; display:flex; justify-content:space-between; }
+  .cat-label:hover { color:var(--p); }
+  .cat-items { display:none; }
+  .cat-items.open { display:block; }
+  .fn-item { padding:6px 16px 6px 28px; font-size:13px; cursor:pointer; color:#374151; transition:background .1s; }
+  .fn-item:hover, .fn-item.active { background:#ecfdf5; color:var(--p); font-weight:600; }
+  .fn-count { font-size:10px; background:#f3f4f6; border-radius:10px; padding:1px 6px; }
+  .sidebar-list { flex:1; overflow-y:auto; }
+
+  /* ── Admin links ── */
+  .admin-links { padding:12px 16px; border-top:1px solid #e5e7eb; display:flex; flex-direction:column; gap:6px; }
+  .admin-links a { font-size:12px; color:var(--p); text-decoration:none; font-weight:600; }
+  .admin-links a:hover { text-decoration:underline; }
+
+  /* ── Main panel ── */
+  .main { flex:1; padding:24px 32px; overflow-y:auto; }
+  .main h2 { font-size:22px; color:var(--p); margin-bottom:4px; }
+  .main .desc { color:#6b7280; margin-bottom:16px; }
+  .main .formula { font-family:'Consolas','Courier New',monospace; font-size:13px; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:6px; padding:8px 12px; margin-bottom:16px; color:var(--p); cursor:pointer; }
+  .main .formula:hover { background:#dcfce7; }
+  .main .formula:active::after { content:' ✓ copied'; color:var(--a); }
+
+  /* ── Param form ── */
+  .params { display:grid; grid-template-columns:120px 1fr; gap:8px 12px; align-items:center; margin-bottom:16px; }
+  .params label { font-size:12px; font-weight:600; text-align:right; color:#374151; }
+  .params input, .params select { padding:6px 10px; border:1px solid #d1d5db; border-radius:6px; font-size:13px; width:100%; }
+  .params input:focus, .params select:focus { outline:none; border-color:var(--a); box-shadow:0 0 0 2px rgba(34,197,94,.15); }
+  .params .hint { grid-column:2; font-size:11px; color:#9ca3af; margin-top:-4px; }
+
+  /* ── Buttons ── */
+  .btn { padding:8px 20px; border:none; border-radius:8px; font-weight:700; font-size:13px; cursor:pointer; transition:all .15s; }
+  .btn-primary { background:var(--p); color:#fff; }
+  .btn-primary:hover { background:#0d3d22; }
+  .btn-secondary { background:#f3f4f6; color:var(--t); }
+  .btn-secondary:hover { background:#e5e7eb; }
+  .btn-group { display:flex; gap:8px; margin-bottom:16px; }
+
+  /* ── Result ── */
+  .result { background:var(--sh); border:1px solid #e5e7eb; border-radius:var(--r); padding:16px; min-height:80px; }
+  .result .timing { font-size:11px; color:#9ca3af; margin-bottom:8px; }
+  .result .val { font-size:28px; font-weight:800; color:var(--p); }
+  .result .err { color:#dc2626; font-weight:600; }
+  .result table { width:100%; border-collapse:collapse; font-size:12px; margin-top:8px; }
+  .result th { text-align:left; font-weight:600; color:#6b7280; border-bottom:2px solid #e5e7eb; padding:4px 8px; }
+  .result td { padding:4px 8px; border-bottom:1px solid #f3f4f6; }
+  .result tr:nth-child(even) { background:#f9fafb; }
+
+  /* ── Examples ── */
+  .examples { margin-top:16px; }
+  .examples h4 { font-size:12px; font-weight:700; color:#9ca3af; text-transform:uppercase; letter-spacing:.06em; margin-bottom:6px; }
+  .example { font-family:monospace; font-size:12px; color:#6b7280; padding:2px 0; }
+
+  /* ── Welcome ── */
+  .welcome { text-align:center; padding:80px 40px; color:#9ca3af; }
+  .welcome h1 { font-size:28px; color:var(--p); margin-bottom:8px; }
+  .welcome .eyes { font-size:48px; margin-bottom:16px; }
+
+  /* ── Sync panel ── */
+  .sync-bar { display:flex; gap:8px; align-items:center; padding:8px 16px; background:#fffbeb; border-bottom:1px solid #fde68a; font-size:12px; }
+  .sync-bar .dot { width:8px; height:8px; border-radius:50%; }
+  .sync-bar .dot.green { background:#22c55e; }
+  .sync-bar .dot.red { background:#ef4444; }
+  .sync-bar .dot.yellow { background:#f59e0b; animation:pulse 1.5s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+</style>
+</head>
+<body>
+
+<div class="sidebar">
+  <div class="sidebar-header">
+    <span>🫣 TickerBoo</span>
+    <small>Playground</small>
+  </div>
+  <div class="sync-bar" id="syncBar">
+    <span class="dot yellow" id="syncDot"></span>
+    <span id="syncText">Loading...</span>
+    <div style="flex:1"></div>
+    <button class="btn btn-secondary" style="padding:2px 8px;font-size:11px" onclick="doSync('catchup')">Sync</button>
+  </div>
+  <div class="sidebar-list" id="fnList"><!-- filled by JS --></div>
+  <div class="admin-links">
+    <a href="/admin/stats" target="_blank">📊 DB Stats (JSON)</a>
+    <a href="/docs" target="_blank">📄 API Docs (OpenAPI)</a>
+    <a href="https://github.com/econodoo/tickerboo" target="_blank">🐙 GitHub</a>
+  </div>
+</div>
+
+<div class="main" id="mainPanel">
+  <div class="welcome">
+    <div class="eyes">👀</div>
+    <h1>TickerBoo Playground</h1>
+    <p>Select a function from the sidebar to test it.</p>
+    <p style="margin-top:8px;font-size:12px">Or <button class="btn btn-primary" style="font-size:12px;padding:4px 12px" onclick="doSync('full')">Run Full Sync</button> if this is the first time.</p>
+  </div>
+</div>
+
+<script>
+const API = '';  // same origin
+
+let allFunctions = [];
+let currentFn = null;
+
+// ── Load functions ──────────────────────────────────────────────────────────
+async function loadFunctions() {
+  try {
+    const r = await fetch(`${API}/functions`);
+    const d = await r.json();
+    allFunctions = d.functions || [];
+    renderSidebar();
+  } catch (e) { console.error('Failed to load functions', e); }
+}
+
+function renderSidebar() {
+  const byCategory = {};
+  allFunctions.forEach(f => {
+    (byCategory[f.category] = byCategory[f.category] || []).push(f);
+  });
+
+  const list = document.getElementById('fnList');
+  list.innerHTML = '';
+
+  const catEmojis = { price:'📊', momentum:'📈', volatility:'💧', volume:'🔊', composite:'🎯', shortcut:'⚡', metadata:'📋', stats:'📉', screen:'🔍', chart:'📈' };
+
+  Object.entries(byCategory).sort().forEach(([cat, fns]) => {
+    const group = document.createElement('div');
+    group.className = 'cat-group';
+    group.innerHTML = `
+      <div class="cat-label" onclick="this.nextElementSibling.classList.toggle('open')">
+        ${catEmojis[cat]||'📦'} ${cat} <span class="fn-count">${fns.length}</span>
+      </div>
+      <div class="cat-items open">
+        ${fns.map(f => `<div class="fn-item" data-fn="${f.name}" onclick="selectFn('${f.name}')">${f.name}</div>`).join('')}
+      </div>`;
+    list.appendChild(group);
+  });
+}
+
+// ── Select function ─────────────────────────────────────────────────────────
+function selectFn(name) {
+  const fn = allFunctions.find(f => f.name === name);
+  if (!fn) return;
+  currentFn = fn;
+
+  // Highlight
+  document.querySelectorAll('.fn-item').forEach(el => el.classList.toggle('active', el.dataset.fn === name));
+
+  const main = document.getElementById('mainPanel');
+  main.innerHTML = `
+    <h2>TB.${fn.name}</h2>
+    <p class="desc">${fn.description || ''}</p>
+    <div class="formula" onclick="copyFormula()" title="Click to copy">${fn.formula || ''}</div>
+
+    <div class="params" id="paramForm">
+      ${fn.params.map(p => `
+        <label>${p.name}${p.required ? ' *' : ''}</label>
+        ${p.choices
+          ? `<select name="${p.name}">${p.choices.map(c => `<option value="${c}" ${c===p.default?'selected':''}>${c}</option>`).join('')}</select>`
+          : `<input name="${p.name}" placeholder="${p.default !== null && p.default !== undefined ? p.default : ''}" value="${p.default !== null && p.default !== undefined && p.required ? '' : (p.default || '')}" />`
+        }
+        ${p.description ? `<div class="hint">${p.description}</div>` : ''}
+      `).join('')}
+    </div>
+
+    <div class="btn-group">
+      <button class="btn btn-primary" onclick="runFn()">▶ Run</button>
+      <button class="btn btn-secondary" onclick="copyFormula()">📋 Copy formula</button>
+    </div>
+
+    <div class="result" id="result">
+      <div style="color:#9ca3af;font-size:13px">Hit Run to see the result.</div>
+    </div>
+
+    ${fn.examples && fn.examples.length ? `
+      <div class="examples">
+        <h4>Examples</h4>
+        ${fn.examples.map(e => `<div class="example">${e}</div>`).join('')}
+      </div>
+    ` : ''}
+  `;
+}
+
+// ── Run function ────────────────────────────────────────────────────────────
+async function runFn() {
+  if (!currentFn) return;
+  const form = document.getElementById('paramForm');
+  const args = {};
+  currentFn.params.forEach(p => {
+    const el = form.querySelector(`[name="${p.name}"]`);
+    if (el && el.value !== '') {
+      let v = el.value;
+      if (p.type === 'number') v = parseFloat(v);
+      if (p.type === 'integer') v = parseInt(v);
+      args[p.name] = v;
+    }
+  });
+
+  const res = document.getElementById('result');
+  res.innerHTML = '<div style="color:#9ca3af">Running...</div>';
+
+  try {
+    const r = await fetch(`${API}/call/${currentFn.name}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ args }),
+    });
+    const d = await r.json();
+    renderResult(d);
+  } catch (e) {
+    res.innerHTML = `<div class="err">Network error: ${e.message}</div>`;
+  }
+}
+
+function renderResult(d) {
+  const res = document.getElementById('result');
+
+  if (d.status === 'error' || d.status === 'no_data') {
+    res.innerHTML = `<div class="err">⚠ ${d.message || d.code || 'Error'}</div>`;
+    return;
+  }
+
+  const timing = `<div class="timing">⏱ ${d.duration_ms || 0} ms</div>`;
+  const v = d.value;
+
+  // Scalar
+  if (typeof v === 'number' || typeof v === 'string' || typeof v === 'boolean' || v === null) {
+    const display = v === null ? 'null' : typeof v === 'number' ? v.toLocaleString() : String(v);
+    res.innerHTML = `${timing}<div class="val">${display}</div>`;
+    return;
+  }
+
+  // Array (table)
+  if (Array.isArray(v)) {
+    if (v.length === 0) {
+      res.innerHTML = `${timing}<div class="err">Empty result</div>`;
+      return;
+    }
+
+    // 1D array → single row
+    if (!Array.isArray(v[0])) {
+      const cols = currentFn?.output_columns || v.map((_,i) => `col${i}`);
+      res.innerHTML = `${timing}<table><tr>${cols.map(c => `<th>${c}</th>`).join('')}</tr><tr>${v.map(c => `<td>${typeof c==='number'?c.toLocaleString():c}</td>`).join('')}</tr></table>`;
+      return;
+    }
+
+    // 2D array → full table
+    const cols = currentFn?.output_columns || v[0].map((_,i) => `col${i}`);
+    const maxRows = 50;
+    const shown = v.slice(-maxRows);
+    const truncated = v.length > maxRows ? `<div class="timing">Showing last ${maxRows} of ${v.length} rows</div>` : '';
+    res.innerHTML = `${timing}${truncated}<table><tr>${cols.map(c => `<th>${c}</th>`).join('')}</tr>${shown.map(row => `<tr>${row.map(c => `<td>${typeof c==='number'?c.toLocaleString():c}</td>`).join('')}</tr>`).join('')}</table>`;
+    return;
+  }
+
+  // Object
+  res.innerHTML = `${timing}<pre style="font-size:12px">${JSON.stringify(v, null, 2)}</pre>`;
+}
+
+// ── Copy formula ────────────────────────────────────────────────────────────
+function copyFormula() {
+  if (!currentFn) return;
+  const form = document.getElementById('paramForm');
+  const parts = [];
+  currentFn.params.forEach(p => {
+    const el = form?.querySelector(`[name="${p.name}"]`);
+    const v = el?.value;
+    if (v) {
+      if (p.type === 'string' || p.type === 'date') parts.push(`"${v}"`);
+      else parts.push(v);
+    }
+  });
+  const formula = `=TB.${currentFn.name}(${parts.join(', ')})`;
+  navigator.clipboard?.writeText(formula);
+}
+
+// ── Sync control ────────────────────────────────────────────────────────────
+async function doSync(type) {
+  const dot = document.getElementById('syncDot');
+  const txt = document.getElementById('syncText');
+  dot.className = 'dot yellow';
+  txt.textContent = `Running ${type} sync...`;
+
+  try {
+    await fetch(`${API}/admin/sync/${type}`, { method: 'POST' });
+    // Poll status
+    pollSync();
+  } catch (e) {
+    dot.className = 'dot red';
+    txt.textContent = 'Sync failed: ' + e.message;
+  }
+}
+
+async function pollSync() {
+  const dot = document.getElementById('syncDot');
+  const txt = document.getElementById('syncText');
+
+  try {
+    const r = await fetch(`${API}/admin/sync/status`);
+    const d = await r.json();
+    const s = d.sync || {};
+    const db = d.db || {};
+
+    if (s.status === 'running') {
+      dot.className = 'dot yellow';
+      txt.textContent = `Syncing... (${s.sync_type || ''})`;
+      setTimeout(pollSync, 3000);
+    } else if (db.tickers > 0) {
+      dot.className = 'dot green';
+      txt.textContent = `${db.tickers} tickers · ${(db.total_bars||0).toLocaleString()} bars · latest: ${db.latest||'?'}`;
+    } else {
+      dot.className = 'dot red';
+      txt.textContent = 'No data yet — run Full Sync';
+    }
+  } catch (e) {
+    dot.className = 'dot red';
+    txt.textContent = 'Cannot reach API';
+  }
+}
+
+// ── Init ────────────────────────────────────────────────────────────────────
+loadFunctions();
+pollSync();
+</script>
+</body>
+</html>

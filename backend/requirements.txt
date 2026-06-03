@@ -12,7 +12,7 @@ pandas>=2.2.0
 numpy>=1.26.0
 
 # Database
-sqlalchemy>=2.0.0
+aiosqlite>=0.20.0
 
 # Technical indicators (requires system TA-Lib: apt install ta-lib or brew install ta-lib)
 # TA-Lib>=0.4.28

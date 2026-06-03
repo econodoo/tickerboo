@@ -37,8 +37,16 @@ async def lifespan(app: FastAPI):
 
     warm_asset_cache()
 
-    # Placeholder hooks — uncomment as iterations land:
-    # from .db.session import init_db; await init_db()
+    # Init DB (create tables if needed)
+    from .db.session import init_db, close_db
+    await init_db()
+
+    # Discover all function plugins
+    from .functions.registry import registry
+    registry.discover()
+    log.info("Functions registered: %d", registry.count)
+
+    # Placeholder hooks for future:
     # from .jobs.scheduler import start_scheduler; start_scheduler()
 
     log.info("Startup complete — listening on %s:%s", settings.host, settings.port)
@@ -46,6 +54,7 @@ async def lifespan(app: FastAPI):
 
     # ── Shutdown ─────────────────────────────────────────────────────────
     log.info("TickerBoo shutting down")
+    await close_db()
     # from .jobs.scheduler import stop_scheduler; stop_scheduler()
 
 
@@ -98,12 +107,17 @@ async def health():
 
 @app.get("/", tags=["system"], include_in_schema=False)
 async def root():
-    return {"message": "TickerBoo API", "docs": "/docs", "health": "/health"}
+    return {
+        "message": "TickerBoo API",
+        "docs": "/docs",
+        "health": "/health",
+        "playground": "/admin/playground",
+    }
 
 
-# Future route groups (uncomment as iterations land):
-# from .api import candles, tickers, indicators, admin
-# app.include_router(tickers.router,    prefix="/tickers",    tags=["market"])
-# app.include_router(candles.router,    prefix="/candles",    tags=["market"])
-# app.include_router(indicators.router, prefix="/indicators", tags=["analytics"])
-# app.include_router(admin.router,      prefix="/admin",      tags=["admin"])
+# ── Route groups ─────────────────────────────────────────────────────────────
+from .api.functions import router as functions_router
+from .api.admin import router as admin_router
+
+app.include_router(functions_router)
+app.include_router(admin_router)
