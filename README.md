@@ -44,7 +44,7 @@ See [docs/deployment.md](docs/deployment.md) for nginx + systemd setup at `tmc.v
 ## Iteration status
 
 - [x] **Iter 0** — Project skeleton, scripts, logging, health endpoint
-- [ ] **Iter 1** — CafeF historical ingest, ticker list, daily candles
+- [x] **Iter 1** — Plugin architecture, CafeF harvester, 10 price functions, admin playground
 - [ ] **Iter 2** — API contract, mock TF layer
 - [ ] **Iter 3** — TA-Lib indicator engine + cache
 - [ ] **Iter 4** — Async pre-compute jobs
