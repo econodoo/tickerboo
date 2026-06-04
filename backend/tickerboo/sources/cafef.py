@@ -1,43 +1,37 @@
 """
 CafeF data source — downloads historical EOD candles from CafeF CDN.
 
-Two download modes:
-  - 'upto': Full history ZIP (all tickers, all dates up to target)
-  - 'daily': Single-day ZIP (one day, all tickers)
-
-Data is adjusted (dividends/splits already factored in).
-AmiBroker CSV format inside ZIP: SYMBOL,YYYYMMDD,OPEN,HIGH,LOW,CLOSE,VOLUME
-
-v0.9: Refactored for chunked ingestion — large ZIPs are saved to disk
-      and processed via IngestionEngine (5K records/batch, async).
-      Small daily ZIPs still use fast in-memory path.
+v0.9: All sync operations route through IngestionEngine (turbo or patch mode).
+      No more in-memory-parse-everything approach.
 
 Usage:
     cafef = CafeF()
-    result = await cafef.sync_full()       # saves ZIP → disk → chunked ingest
-    result = await cafef.sync_catchup()    # daily files → fast in-memory path
+    result = await cafef.sync_full()       # saves ZIP → disk → turbo ingest
+    result = await cafef.sync_catchup()    # daily files → patch ingest
 """
 from __future__ import annotations
 
 import asyncio
 import io
 import logging
+import sqlite3
 import zipfile
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 from pathlib import Path
 from typing import Optional
 
 import httpx
 
 from tickerboo.config import settings
-from tickerboo.db.session import get_db, fetch_one, fetch_all, db_session
+from tickerboo.db.session import get_db, fetch_one, db_session
 
 log = logging.getLogger(__name__)
 
 
 def _get_url_prefix() -> str:
-    """Get CafeF URL prefix — checks DB setting, falls back to config."""
-    return getattr(settings, "cafef_url_prefix", "https://cafef1.mediacdn.vn/data/ami_data/")
+    """Get CafeF URL prefix — checks runtime config."""
+    return getattr(settings, "cafef_url_prefix",
+                   "https://cafef1.mediacdn.vn/data/ami_data/")
 
 
 class CafeF:
@@ -49,8 +43,7 @@ class CafeF:
     async def _get_client(self) -> httpx.AsyncClient:
         if self.client is None:
             self.client = httpx.AsyncClient(
-                timeout=120.0,
-                follow_redirects=True,
+                timeout=120.0, follow_redirects=True,
                 headers={"User-Agent": "TickerBoo/1.0"},
             )
         return self.client
@@ -59,7 +52,6 @@ class CafeF:
 
     @staticmethod
     def _build_url(target_date: date, download_type: str = "upto") -> str:
-        """Build CafeF CDN URL for adjusted data."""
         prefix = _get_url_prefix()
         folder = target_date.strftime("%Y%m%d")
         date_file = target_date.strftime("%d%m%Y")
@@ -72,220 +64,36 @@ class CafeF:
     async def download_zip(
         self, target_date: date, download_type: str = "upto", retries: int = 7
     ) -> Optional[bytes]:
-        """
-        Download a CafeF ZIP, trying target_date then going backwards.
-
-        CafeF doesn't publish on weekends/holidays, so we try up to
-        `retries` previous days to find the latest available file.
-        """
+        """Download CafeF ZIP, trying backwards for weekends/holidays."""
         client = await self._get_client()
 
         for days_back in range(retries + 1):
             d = target_date - timedelta(days=days_back)
             url = self._build_url(d, download_type)
-
             try:
                 log.info("CafeF download: %s", url)
                 resp = await client.get(url)
                 if resp.status_code == 200 and len(resp.content) > 1000:
-                    log.info(
-                        "CafeF download OK: %s (%d KB)",
-                        d.isoformat(), len(resp.content) // 1024,
-                    )
+                    log.info("CafeF OK: %s (%d KB)", d.isoformat(),
+                             len(resp.content) // 1024)
                     return resp.content
-                else:
-                    log.debug("CafeF %s: HTTP %d (size %d)", d, resp.status_code, len(resp.content))
+                log.debug("CafeF %s: HTTP %d (%d bytes)",
+                          d, resp.status_code, len(resp.content))
             except httpx.HTTPError as e:
-                log.warning("CafeF download error for %s: %s", d, e)
+                log.warning("CafeF error %s: %s", d, e)
 
-        log.error("CafeF: no data found after %d retries from %s", retries, target_date)
+        log.error("CafeF: no data after %d retries from %s", retries, target_date)
         return None
 
-    async def download_to_disk(
-        self, target_date: date, download_type: str = "upto", retries: int = 7
-    ) -> Optional[Path]:
-        """
-        Download ZIP and save to data/uploads/ directory.
-        Returns the saved file path, or None if download failed.
-        """
-        zip_bytes = await self.download_zip(target_date, download_type, retries)
-        if not zip_bytes:
-            return None
-
-        uploads = Path(settings.db_path).parent / "uploads"
-        uploads.mkdir(parents=True, exist_ok=True)
-
-        date_str = target_date.strftime("%Y%m%d")
-        filename = f"cafef_{download_type}_{date_str}.zip"
-        dest = uploads / filename
-        dest.write_bytes(zip_bytes)
-
-        log.info("CafeF ZIP saved to disk: %s (%d KB)", dest, len(zip_bytes) // 1024)
-        return dest
-
-    # ── Chunked upsert (5K batch) ────────────────────────────────────────
-
-    async def _chunked_upsert_from_zip(self, zip_bytes: bytes) -> dict:
-        """
-        Parse ZIP and upsert in 5K-record batches.
-        Used for daily files (small enough to hold in memory).
-        """
-        BATCH = 5_000
-        total = 0
-        all_tickers: set[str] = set()
-
-        try:
-            zf = zipfile.ZipFile(io.BytesIO(zip_bytes))
-        except zipfile.BadZipFile:
-            log.error("CafeF: invalid ZIP file")
-            return {"inserted": 0, "tickers": 0}
-
-        batch: list[tuple] = []
-
-        for name in zf.namelist():
-            with zf.open(name) as f:
-                for raw_line in f:
-                    line = raw_line.decode("utf-8", errors="ignore").strip()
-                    if not line or line.startswith("<") or line.startswith("!"):
-                        continue
-                    parts = line.split(",")
-                    if len(parts) < 7:
-                        continue
-                    try:
-                        symbol = parts[0].strip().upper()
-                        date_str = parts[1].strip()
-                        if len(date_str) != 8:
-                            continue
-                        iso_date = f"{date_str[:4]}-{date_str[4:6]}-{date_str[6:8]}"
-                        batch.append((
-                            symbol, iso_date,
-                            float(parts[2]), float(parts[3]),
-                            float(parts[4]), float(parts[5]),
-                            int(float(parts[6])),
-                        ))
-                        all_tickers.add(symbol)
-                    except (ValueError, IndexError):
-                        continue
-
-                    if len(batch) >= BATCH:
-                        await self._flush_batch(batch)
-                        total += len(batch)
-                        batch = []
-                        await asyncio.sleep(0)
-
-        if batch:
-            await self._flush_batch(batch)
-            total += len(batch)
-
-        zf.close()
-
-        # Update stocks metadata
-        await self._update_stocks(all_tickers)
-
-        log.info("Chunked upsert: %d records, %d tickers", total, len(all_tickers))
-        return {"inserted": total, "tickers": len(all_tickers)}
-
-    async def _flush_batch(self, batch: list[tuple]):
-        """Upsert a batch using a separate connection."""
-        async with db_session() as db:
-            await db.executemany(
-                """INSERT OR REPLACE INTO daily_ohlcv
-                   (symbol, date, open, high, low, close, volume, source)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, 'cafef')""",
-                batch,
-            )
-            await db.commit()
-
-    async def _update_stocks(self, tickers: set[str]):
-        """Refresh stocks table for affected tickers."""
-        async with db_session() as db:
-            for t in tickers:
-                await db.execute(
-                    """INSERT INTO stocks (symbol, first_date, last_date, total_bars, updated_at)
-                       VALUES (?,
-                         (SELECT MIN(date) FROM daily_ohlcv WHERE symbol=?),
-                         (SELECT MAX(date) FROM daily_ohlcv WHERE symbol=?),
-                         (SELECT COUNT(*) FROM daily_ohlcv WHERE symbol=?),
-                         datetime('now'))
-                       ON CONFLICT(symbol) DO UPDATE SET
-                         first_date = excluded.first_date,
-                         last_date  = excluded.last_date,
-                         total_bars = excluded.total_bars,
-                         updated_at = excluded.updated_at""",
-                    (t, t, t, t),
-                )
-            await db.commit()
-
-    # ── Backward-compat parse_zip / upsert_records ────────────────────────
-
-    @staticmethod
-    def parse_zip(zip_bytes: bytes) -> list[dict]:
-        """Parse CafeF AmiBroker ZIP into list of dicts. LEGACY — prefer chunked."""
-        records = []
-        try:
-            with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
-                for name in zf.namelist():
-                    with zf.open(name) as f:
-                        for raw_line in f:
-                            line = raw_line.decode("utf-8", errors="ignore").strip()
-                            if not line or line.startswith("<") or line.startswith("!"):
-                                continue
-                            parts = line.split(",")
-                            if len(parts) < 7:
-                                continue
-                            try:
-                                symbol = parts[0].strip().upper()
-                                date_str = parts[1].strip()
-                                if len(date_str) != 8:
-                                    continue
-                                iso_date = f"{date_str[:4]}-{date_str[4:6]}-{date_str[6:8]}"
-                                records.append({
-                                    "symbol": symbol, "date": iso_date,
-                                    "open": float(parts[2]), "high": float(parts[3]),
-                                    "low": float(parts[4]), "close": float(parts[5]),
-                                    "volume": int(float(parts[6])),
-                                })
-                            except (ValueError, IndexError):
-                                continue
-        except zipfile.BadZipFile:
-            log.error("CafeF: invalid ZIP file")
-            return []
-        log.info("CafeF parsed %d records from ZIP", len(records))
-        return records
-
-    async def upsert_records(self, records: list[dict]) -> dict:
-        """Insert or replace candle records into daily_ohlcv. LEGACY wrapper."""
-        if not records:
-            return {"inserted": 0, "tickers": 0}
-        batch = [
-            (r["symbol"], r["date"], r["open"], r["high"],
-             r["low"], r["close"], r["volume"])
-            for r in records
-        ]
-        await self._flush_batch(batch)
-        tickers = set(r["symbol"] for r in records)
-        await self._update_stocks(tickers)
-        return {"inserted": len(records), "tickers": len(tickers)}
-
-    # ── Sync operations ──────────────────────────────────────────────────
-
-    async def get_last_date(self) -> date | None:
-        """Get the most recent date across all tickers in daily_ohlcv."""
-        row = await fetch_one("SELECT MAX(date) as max_date FROM daily_ohlcv")
-        if row and row["max_date"]:
-            return date.fromisoformat(row["max_date"])
-        return None
+    # ── Sync: Full ───────────────────────────────────────────────────────
 
     async def sync_full(self) -> dict:
         """
-        Full historical sync — downloads the 'upto' ZIP.
-
-        For large files (>10MB), saves to disk and uses IngestionEngine
-        for chunked processing. Small files use fast in-memory path.
+        Full historical sync — download 'upto' ZIP, save to disk,
+        ingest via IngestionEngine in turbo mode.
         """
         log.info("CafeF full sync starting...")
         db = await get_db()
-
         await db.execute(
             "INSERT INTO data_sync (sync_type, source, started_at, status) "
             "VALUES ('full', 'cafef', datetime('now'), 'running')"
@@ -295,55 +103,54 @@ class CafeF:
         try:
             zip_bytes = await self.download_zip(date.today(), "upto")
             if not zip_bytes:
-                await self._finish_sync("full", "failed", error="Could not download CafeF ZIP")
+                await self._finish_sync("full", "failed",
+                                        error="Could not download CafeF ZIP")
                 return {"error": "download failed"}
 
+            # Save to disk (free memory immediately)
+            uploads = Path(settings.db_path).parent / "uploads"
+            uploads.mkdir(parents=True, exist_ok=True)
+            dest = uploads / f"cafef_full_{date.today().strftime('%Y%m%d')}.zip"
+            dest.write_bytes(zip_bytes)
             size_mb = len(zip_bytes) / 1024 / 1024
-            log.info("CafeF ZIP downloaded: %.1f MB", size_mb)
+            del zip_bytes
+            log.info("CafeF ZIP saved: %s (%.1f MB)", dest, size_mb)
 
-            if size_mb > 10:
-                # Large file → save to disk, use IngestionEngine
-                uploads = Path(settings.db_path).parent / "uploads"
-                uploads.mkdir(parents=True, exist_ok=True)
-                dest = uploads / f"cafef_full_{date.today().strftime('%Y%m%d')}.zip"
-                dest.write_bytes(zip_bytes)
-                del zip_bytes  # free memory immediately
+            # Route through IngestionEngine (turbo mode)
+            from tickerboo.sources.ingest import ingestion_engine
+            job_id = await ingestion_engine.start_from_path(dest, "cafef", mode="full")
 
-                from tickerboo.sources.ingest import ingestion_engine
-                job_id = await ingestion_engine.start_from_path(dest, "cafef")
+            # Wait for completion
+            while ingestion_engine.is_busy:
+                await asyncio.sleep(2)
 
-                # Wait for completion (non-blocking poll)
-                while ingestion_engine.is_busy:
-                    await asyncio.sleep(1)
-
-                progress = ingestion_engine.get_progress(job_id)
-                if progress and progress["status"] == "completed":
-                    result = {"inserted": progress["records_upserted"], "tickers": progress["tickers_found"]}
-                    await self._finish_sync("full", "completed",
-                                            records=result["inserted"], tickers=result["tickers"])
-                    return result
-                else:
-                    error = progress["error"] if progress else "Unknown error"
-                    await self._finish_sync("full", "failed", error=error)
-                    return {"error": error}
-            else:
-                # Small file → chunked in-memory (still batched, no OOM)
-                result = await self._chunked_upsert_from_zip(zip_bytes)
+            progress = ingestion_engine.get_progress(job_id)
+            if progress and progress["status"] == "completed":
+                result = {
+                    "inserted": progress["records_inserted"],
+                    "tickers": progress["tickers_found"],
+                    "rate_rps": progress["rate_rps"],
+                }
                 await self._finish_sync("full", "completed",
-                                        records=result["inserted"], tickers=result["tickers"])
-                log.info("CafeF full sync complete: %d records, %d tickers",
-                         result["inserted"], result["tickers"])
+                                        records=result["inserted"],
+                                        tickers=result["tickers"])
                 return result
+            else:
+                error = progress["error"] if progress else "Unknown"
+                await self._finish_sync("full", "failed", error=error)
+                return {"error": error}
 
         except Exception as e:
             log.exception("CafeF full sync failed")
             await self._finish_sync("full", "failed", error=str(e))
             return {"error": str(e)}
 
+    # ── Sync: Catchup ────────────────────────────────────────────────────
+
     async def sync_catchup(self) -> dict:
         """
-        Catchup sync — downloads individual daily files for missing days.
-        Daily files are small, so chunked in-memory path is fine.
+        Catchup sync — download daily files for missing days.
+        Uses fast direct-insert for small daily files.
         """
         last = await self.get_last_date()
         if not last:
@@ -352,7 +159,6 @@ class CafeF:
 
         today = date.today()
         if last >= today:
-            log.info("Already up to date (last: %s)", last)
             return {"status": "up_to_date", "last_date": last.isoformat()}
 
         log.info("CafeF catchup: %s → %s", last, today)
@@ -368,44 +174,113 @@ class CafeF:
         current = last + timedelta(days=1)
 
         while current <= today:
-            if current.weekday() < 5:  # Mon-Fri
+            if current.weekday() < 5:
                 zip_bytes = await self.download_zip(current, "daily", retries=0)
                 if zip_bytes:
-                    result = await self._chunked_upsert_from_zip(zip_bytes)
-                    if result["inserted"] > 0:
-                        total_records += result["inserted"]
+                    inserted = self._fast_insert_small_zip(zip_bytes)
+                    if inserted > 0:
+                        total_records += inserted
                         days_with_data += 1
-                    await asyncio.sleep(0)  # yield
+                    await asyncio.sleep(0)
             current += timedelta(days=1)
+
+        # Update stocks metadata once at the end
+        self._update_stocks_aggregate()
 
         await self._finish_sync("catchup", "completed",
                                 records=total_records, tickers=days_with_data)
-
-        log.info("CafeF catchup done: %d records over %d days", total_records, days_with_data)
+        log.info("CafeF catchup: %d records, %d days", total_records, days_with_data)
         return {
             "days_synced": (today - last).days,
             "days_with_data": days_with_data,
             "records": total_records,
         }
 
+    def _fast_insert_small_zip(self, zip_bytes: bytes) -> int:
+        """
+        Fast insert for small daily ZIPs (~2K records).
+        Uses raw sqlite3 + INSERT OR IGNORE in a single transaction.
+        """
+        records = []
+        try:
+            with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
+                for name in zf.namelist():
+                    with zf.open(name) as f:
+                        for raw_line in f:
+                            line = raw_line.decode("utf-8", errors="ignore").strip()
+                            if not line or line[0] in ("<", "!"):
+                                continue
+                            parts = line.split(",")
+                            if len(parts) < 7:
+                                continue
+                            try:
+                                sym = parts[0].strip().upper()
+                                ds = parts[1].strip()
+                                if len(ds) != 8:
+                                    continue
+                                iso = f"{ds[:4]}-{ds[4:6]}-{ds[6:8]}"
+                                records.append((
+                                    sym, iso,
+                                    float(parts[2]), float(parts[3]),
+                                    float(parts[4]), float(parts[5]),
+                                    int(float(parts[6])),
+                                ))
+                            except (ValueError, IndexError):
+                                continue
+        except zipfile.BadZipFile:
+            return 0
+
+        if not records:
+            return 0
+
+        conn = sqlite3.connect(str(settings.db_path), timeout=30)
+        conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute("PRAGMA busy_timeout=5000")
+        conn.execute("BEGIN TRANSACTION")
+        conn.executemany(
+            """INSERT OR IGNORE INTO daily_ohlcv
+               (symbol, date, open, high, low, close, volume, source)
+               VALUES (?, ?, ?, ?, ?, ?, ?, 'cafef')""",
+            records,
+        )
+        conn.execute("COMMIT")
+        conn.close()
+        return len(records)
+
+    def _update_stocks_aggregate(self):
+        """Bulk-update stocks table with single aggregate query."""
+        conn = sqlite3.connect(str(settings.db_path), timeout=30)
+        conn.execute("""
+            INSERT OR REPLACE INTO stocks (symbol, first_date, last_date, total_bars, updated_at)
+            SELECT symbol, MIN(date), MAX(date), COUNT(*), datetime('now')
+            FROM daily_ohlcv GROUP BY symbol
+        """)
+        conn.commit()
+        conn.close()
+
+    # ── Status / helpers ─────────────────────────────────────────────────
+
+    async def get_last_date(self) -> date | None:
+        row = await fetch_one("SELECT MAX(date) as max_date FROM daily_ohlcv")
+        if row and row["max_date"]:
+            return date.fromisoformat(row["max_date"])
+        return None
+
     async def get_sync_status(self) -> dict:
-        """Get the most recent sync log entry."""
         row = await fetch_one(
             "SELECT * FROM data_sync WHERE source='cafef' ORDER BY id DESC LIMIT 1"
         )
-        if not row:
-            return {"status": "never_synced"}
-        return dict(row)
-
-    # ── Helpers ───────────────────────────────────────────────────────────
+        return dict(row) if row else {"status": "never_synced"}
 
     async def _finish_sync(self, sync_type: str, status: str, records: int = 0,
                            tickers: int = 0, error: str = None):
         db = await get_db()
         await db.execute(
             """UPDATE data_sync
-               SET status=?, completed_at=datetime('now'), records_count=?, tickers_count=?, error_message=?
-               WHERE id = (SELECT MAX(id) FROM data_sync WHERE sync_type=? AND source='cafef')""",
+               SET status=?, completed_at=datetime('now'),
+                   records_count=?, tickers_count=?, error_message=?
+               WHERE id = (SELECT MAX(id) FROM data_sync
+                           WHERE sync_type=? AND source='cafef')""",
             (status, records, tickers, error, sync_type),
         )
         await db.commit()

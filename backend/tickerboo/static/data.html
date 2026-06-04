@@ -172,11 +172,18 @@
     <!-- Upload Zone -->
     <div class="section">
       <div class="section-title"><span class="icon">📥</span> Upload Data File</div>
+      <div style="display:flex;gap:6px;margin-bottom:8px">
+        <button class="btn btn-primary" id="btnModeFull" onclick="setMode('full')" style="flex:1">⚡ Full Sync</button>
+        <button class="btn btn-ghost" id="btnModePatch" onclick="setMode('patch')" style="flex:1">🩹 Patch</button>
+      </div>
+      <div style="font-size:11px;color:#4b5563;margin-bottom:8px" id="modeHint">
+        ⚡ <b>Full</b>: Drop indexes → plain INSERT → rebuild. ~20K rps. Use for first load or re-import.
+      </div>
       <div class="dropzone" id="dropzone" onclick="document.getElementById('fileInput').click()">
         <div class="dz-icon">📦</div>
         <div class="dz-text">
           <strong>Drop CafeF ZIP here</strong> or click to browse<br>
-          <span style="font-size:11px">AmiBroker format (.zip or .csv) — ingested in 5K-record chunks</span>
+          <span style="font-size:11px">AmiBroker format (.zip or .csv) — 100K-record batches, raw sqlite3</span>
         </div>
         <input type="file" id="fileInput" accept=".zip,.csv,.txt">
       </div>
@@ -199,9 +206,11 @@
         </div>
         <div style="font-size:11px;color:var(--dim);display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-top:6px">
           <span>Parsed: <b id="ingParsed" style="color:var(--a)">0</b></span>
-          <span>Upserted: <b id="ingUpserted" style="color:var(--a)">0</b></span>
+          <span>Inserted: <b id="ingUpserted" style="color:var(--a)">0</b></span>
           <span>Tickers: <b id="ingTickers" style="color:var(--a)">0</b></span>
           <span>Batch: <b id="ingBatch" style="color:var(--a)">0/0</b></span>
+          <span>Speed: <b id="ingRps" style="color:var(--a)">0</b> rps</span>
+          <span>Mode: <b id="ingMode" style="color:var(--a)">—</b></span>
         </div>
       </div>
     </div>
@@ -270,6 +279,16 @@
 
 <script>
 const API = '';
+let _ingestMode = 'full';
+
+function setMode(m) {
+  _ingestMode = m;
+  document.getElementById('btnModeFull').className = 'btn ' + (m==='full' ? 'btn-primary' : 'btn-ghost');
+  document.getElementById('btnModePatch').className = 'btn ' + (m==='patch' ? 'btn-primary' : 'btn-ghost');
+  document.getElementById('modeHint').innerHTML = m === 'full'
+    ? '⚡ <b>Full</b>: Drop indexes → plain INSERT → rebuild. ~20K rps. Use for first load or re-import.'
+    : '🩹 <b>Patch</b>: INSERT OR IGNORE — skip existing rows. Use for daily catchup / fill gaps.';
+}
 
 // ══════════════════════════════════════════════════════════════════════════
 // DB Info
@@ -327,7 +346,7 @@ async function uploadFile(file) {
   form.append('file', file);
 
   try {
-    const r = await fetch(`${API}/admin/data/ingest-and-upload`, { method:'POST', body:form });
+    const r = await fetch(`${API}/admin/data/ingest-and-upload?mode=${_ingestMode}`, { method:'POST', body:form });
     const d = await r.json();
 
     if (d.status === 'started') {
@@ -388,7 +407,7 @@ async function loadFiles() {
           </div>
           <div class="fi-actions">
             ${statusBadge}
-            ${f.status !== 'ingesting' ? `<button class="btn btn-primary btn-sm" onclick="ingestFile(${f.id})" title="Re-ingest">▶</button>` : ''}
+            ${f.status !== 'ingesting' ? `<button class="btn btn-primary btn-sm" onclick="ingestFile(${f.id},'full')" title="Full sync (turbo)">⚡</button><button class="btn btn-ghost btn-sm" onclick="ingestFile(${f.id},'patch')" title="Patch (skip existing)">🩹</button>` : ''}
             <button class="btn btn-danger btn-sm" onclick="deleteFile(${f.id})" title="Delete">✕</button>
           </div>
         </div>`;
@@ -396,9 +415,10 @@ async function loadFiles() {
   } catch(e) { console.error('loadFiles', e); }
 }
 
-async function ingestFile(id) {
+async function ingestFile(id, mode) {
+  const m = mode || _ingestMode;
   try {
-    const r = await fetch(`${API}/admin/data/ingest/${id}`, { method:'POST' });
+    const r = await fetch(`${API}/admin/data/ingest/${id}?mode=${m}`, { method:'POST' });
     const d = await r.json();
     if (d.status === 'started') {
       toast('Ingestion started', 'ok');
@@ -453,15 +473,17 @@ async function pollIngestion() {
     document.getElementById('ingPhase').textContent = a.phase;
     document.getElementById('ingElapsed').textContent = a.elapsed_sec + 's';
     document.getElementById('ingParsed').textContent = a.records_parsed.toLocaleString();
-    document.getElementById('ingUpserted').textContent = a.records_upserted.toLocaleString();
+    document.getElementById('ingUpserted').textContent = a.records_inserted.toLocaleString();
     document.getElementById('ingTickers').textContent = a.tickers_found.toLocaleString();
     document.getElementById('ingBatch').textContent = `${a.batches_done}/${a.batches_total}`;
+    document.getElementById('ingRps').textContent = (a.rate_rps || 0).toLocaleString();
+    document.getElementById('ingMode').textContent = a.mode || '—';
 
     if (a.status === 'completed' || a.status === 'failed') {
       if (_pollTimer) { clearInterval(_pollTimer); _pollTimer = null; }
       loadFiles();
       loadDbInfo();
-      if (a.status === 'completed') toast(`Ingested ${a.records_upserted.toLocaleString()} records`, 'ok');
+      if (a.status === 'completed') toast(`Inserted ${a.records_inserted.toLocaleString()} records @ ${(a.rate_rps||0).toLocaleString()} rps`, 'ok');
       if (a.status === 'failed') toast('Ingestion failed: ' + a.error, 'err');
     } else if (!_pollTimer) {
       _pollTimer = setInterval(pollIngestion, 1500);

@@ -143,14 +143,20 @@ async def delete_data_file(file_id: int):
 # ── Ingestion control ────────────────────────────────────────────────────────
 
 @router.post("/admin/data/ingest/{file_id}", tags=["data"])
-async def start_ingestion(file_id: int):
+async def start_ingestion(
+    file_id: int,
+    mode: str = Query("full", description="'full' = turbo (drop indexes, plain INSERT). 'patch' = incremental (INSERT OR IGNORE)"),
+):
     """Start async ingestion from a tracked data file."""
+    if mode not in ("full", "patch"):
+        raise HTTPException(400, "mode must be 'full' or 'patch'")
     try:
-        job_id = await ingestion_engine.start_file(file_id)
+        job_id = await ingestion_engine.start_file(file_id, mode=mode)
         return {
             "status": "started",
             "job_id": job_id,
-            "message": "Ingestion running. Poll GET /admin/data/ingest/status for progress.",
+            "mode": mode,
+            "message": f"Ingestion running ({mode} mode). Poll GET /admin/data/ingest/status.",
         }
     except RuntimeError as e:
         raise HTTPException(409, str(e))
@@ -159,22 +165,21 @@ async def start_ingestion(file_id: int):
 
 
 @router.post("/admin/data/ingest-and-upload", tags=["data"])
-async def upload_and_ingest(file: UploadFile = File(...)):
+async def upload_and_ingest(
+    file: UploadFile = File(...),
+    mode: str = Query("full", description="'full' or 'patch'"),
+):
     """Upload a file AND immediately start ingestion (one-step shortcut)."""
-    # Upload first
     upload_result = await upload_data_file(file)
-    if upload_result.get("status") == "duplicate":
-        file_id = upload_result["file_id"]
-    else:
-        file_id = upload_result["file_id"]
+    file_id = upload_result["file_id"]
 
-    # Start ingestion
     try:
-        job_id = await ingestion_engine.start_file(file_id)
+        job_id = await ingestion_engine.start_file(file_id, mode=mode)
         return {
             "status": "started",
             "job_id": job_id,
             "file_id": file_id,
+            "mode": mode,
             "filename": upload_result.get("filename", ""),
         }
     except RuntimeError as e:
