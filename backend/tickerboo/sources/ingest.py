@@ -443,41 +443,56 @@ class IngestionEngine:
 
     def _finish_file(self, file_id: int, progress: IngestionProgress):
         """Update data_files and data_sync tables (runs in thread, raw sqlite3)."""
-        try:
-            conn = sqlite3.connect(str(settings.db_path), timeout=30)
-            status = progress.status
+        for attempt in range(3):
+            try:
+                conn = sqlite3.connect(str(settings.db_path), timeout=60)
+                conn.execute("PRAGMA busy_timeout=30000")
+                status = progress.status
 
-            if status == "completed":
+                if status == "completed":
+                    conn.execute(
+                        """UPDATE data_files SET
+                             status='ingested', records_total=?, records_inserted=?,
+                             tickers_count=?, date_range_start=?, date_range_end=?,
+                             ingestion_completed=datetime('now'), error_message=NULL
+                           WHERE id=?""",
+                        (progress.records_parsed, progress.records_inserted,
+                         progress.tickers_found, progress.date_min, progress.date_max,
+                         file_id),
+                    )
+                    conn.execute(
+                        """INSERT INTO data_sync
+                           (sync_type, source, started_at, completed_at, status,
+                            records_count, tickers_count, details)
+                           VALUES ('file_ingest', 'cafef', ?, datetime('now'),
+                                   'completed', ?, ?, ?)""",
+                        (datetime.utcnow().isoformat(),
+                         progress.records_inserted, progress.tickers_found,
+                         f"file_id={file_id} mode={progress.mode}"),
+                    )
+                else:
+                    conn.execute(
+                        "UPDATE data_files SET status='failed', error_message=? WHERE id=?",
+                        (progress.error, file_id),
+                    )
+
+                # Also clean up any stale 'running' syncs from cafef path
                 conn.execute(
-                    """UPDATE data_files SET
-                         status='ingested', records_total=?, records_inserted=?,
-                         tickers_count=?, date_range_start=?, date_range_end=?,
-                         ingestion_completed=datetime('now'), error_message=NULL
-                       WHERE id=?""",
-                    (progress.records_parsed, progress.records_inserted,
-                     progress.tickers_found, progress.date_min, progress.date_max,
-                     file_id),
-                )
-                conn.execute(
-                    """INSERT INTO data_sync
-                       (sync_type, source, started_at, completed_at, status,
-                        records_count, tickers_count, details)
-                       VALUES ('file_ingest', 'cafef', ?, datetime('now'),
-                               'completed', ?, ?, ?)""",
-                    (datetime.utcnow().isoformat(),
-                     progress.records_inserted, progress.tickers_found,
-                     f"file_id={file_id} mode={progress.mode}"),
-                )
-            else:
-                conn.execute(
-                    "UPDATE data_files SET status='failed', error_message=? WHERE id=?",
-                    (progress.error, file_id),
+                    """UPDATE data_sync SET status='aborted', completed_at=datetime('now'),
+                          error_message='Superseded by file ingestion'
+                       WHERE status='running' AND started_at < datetime('now', '-2 minutes')"""
                 )
 
-            conn.commit()
-            conn.close()
-        except Exception:
-            log.exception("Failed to update file status for id=%d", file_id)
+                conn.commit()
+                conn.close()
+                log.info("File status updated: id=%d → %s", file_id, status)
+                return
+            except Exception as e:
+                log.warning("_finish_file attempt %d failed: %s", attempt + 1, e)
+                import time as _t
+                _t.sleep(1)
+
+        log.error("_finish_file FAILED after 3 attempts for id=%d", file_id)
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────

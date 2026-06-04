@@ -192,11 +192,47 @@ async def upload_and_ingest(
 
 @router.get("/admin/data/ingest/status", tags=["data"])
 async def ingestion_status():
-    """Get active ingestion progress."""
+    """Get active ingestion progress. Auto-cleans stuck states."""
     active = ingestion_engine.get_active()
+    is_busy = ingestion_engine.is_busy
+
+    # Auto-cleanup: if engine is idle but data_files still say 'ingesting', fix them
+    if not is_busy:
+        await execute(
+            """UPDATE data_files SET status='failed', error_message='Ingestion interrupted'
+               WHERE status='ingesting'
+               AND ingestion_started < datetime('now', '-2 minutes')"""
+        )
+        # Also fix stale data_sync records stuck at 'running'
+        await execute(
+            """UPDATE data_sync SET status='unknown', completed_at=datetime('now'),
+                  error_message='Cleaned up: was stuck at running'
+               WHERE status='running'
+               AND started_at < datetime('now', '-5 minutes')"""
+        )
+
     return {
-        "is_busy": ingestion_engine.is_busy,
+        "is_busy": is_busy,
         "active": active,
+    }
+
+
+@router.post("/admin/data/cleanup", tags=["data"])
+async def cleanup_stuck_records():
+    """Force-fix all stuck 'running' syncs and 'ingesting' files."""
+    fixed_syncs = await execute(
+        """UPDATE data_sync SET status='aborted', completed_at=datetime('now'),
+              error_message='Manually cleaned up'
+           WHERE status='running'"""
+    )
+    fixed_files = await execute(
+        """UPDATE data_files SET status='uploaded', error_message='Reset by cleanup'
+           WHERE status='ingesting'"""
+    )
+    return {
+        "status": "cleaned",
+        "syncs_fixed": fixed_syncs,
+        "files_fixed": fixed_files,
     }
 
 

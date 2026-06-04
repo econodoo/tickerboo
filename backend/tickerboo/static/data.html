@@ -4,659 +4,436 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>TickerBoo — Data Manager</title>
+<link rel="stylesheet" href="/static/theme.css">
 <style>
-  :root { --p:#185B35; --a:#22c55e; --t:#111827; --bg:#0f1117; --card:#161922; --border:#1e2230; --dim:#6b7280; --r:10px; }
   * { margin:0; padding:0; box-sizing:border-box; }
-  body { font:14px/1.5 'Segoe UI',system-ui,sans-serif; background:var(--bg); color:#e5e7eb; }
+  body { min-height:100vh; padding-bottom:32px; }
 
-  /* ── Layout ── */
-  .topbar { display:flex; align-items:center; gap:12px; padding:12px 24px; border-bottom:1px solid var(--border); background:#111318; }
-  .topbar .eyes { font-size:24px; }
-  .topbar h1 { font-size:18px; font-weight:800; color:#fff; }
-  .topbar h1 span { color:var(--a); }
+  /* ── Topbar ── */
+  .topbar { display:flex; align-items:center; gap:10px; padding:10px 20px; background:var(--header-bg); border-bottom:1px solid var(--border); backdrop-filter:blur(12px); position:sticky; top:0; z-index:50; }
+  .topbar .eyes { font-size:22px; }
+  .topbar h1 { font-size:16px; font-weight:800; }
+  .topbar h1 b { color:var(--accent); }
   .topbar .spacer { flex:1; }
-  .topbar a { font-size:12px; color:var(--dim); text-decoration:none; padding:4px 10px; border:1px solid var(--border); border-radius:6px; }
-  .topbar a:hover { color:#fff; border-color:var(--a); }
+  .topbar a { font-size:11px; color:var(--text3); text-decoration:none; padding:3px 8px; border:1px solid var(--border); border-radius:var(--radius-sm); transition:all .15s; }
+  .topbar a:hover { color:var(--text); border-color:var(--accent); }
 
-  .container { display:grid; grid-template-columns:1fr 380px; gap:0; height:calc(100vh - 49px); }
-  .left { padding:20px 24px; overflow-y:auto; border-right:1px solid var(--border); }
-  .right { padding:20px 24px; overflow-y:auto; }
+  /* ── Tabs ── */
+  .tab-bar { display:flex; gap:2px; padding:8px 20px 0; background:var(--bg); border-bottom:1px solid var(--border); }
+  .tab { padding:8px 16px; font-size:12px; font-weight:700; color:var(--text3); cursor:pointer; border-bottom:2px solid transparent; transition:all .15s; text-transform:uppercase; letter-spacing:.06em; }
+  .tab:hover { color:var(--text2); }
+  .tab.active { color:var(--accent); border-bottom-color:var(--accent); }
 
-  /* ── Cards ── */
-  .section { margin-bottom:24px; }
-  .section-title { font-size:13px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:var(--dim); margin-bottom:10px; display:flex; align-items:center; gap:8px; }
-  .section-title .icon { font-size:16px; }
+  .tab-content { display:none; padding:20px; max-width:960px; margin:0 auto; }
+  .tab-content.active { display:block; }
 
-  .card { background:var(--card); border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; margin-bottom:10px; }
+  /* ── Cards & sections ── */
+  .section { margin-bottom:20px; }
+  .section-title { font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--text3); margin-bottom:8px; display:flex; align-items:center; gap:6px; }
+  .card { background:var(--bg2); border:1px solid var(--border); border-radius:var(--radius); padding:14px 16px; margin-bottom:8px; }
 
-  /* ── DB Info grid ── */
-  .db-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(130px, 1fr)); gap:8px; margin-bottom:12px; }
-  .db-stat { background:var(--card); border:1px solid var(--border); border-radius:8px; padding:10px 12px; text-align:center; }
-  .db-stat .num { font-size:22px; font-weight:900; color:var(--a); line-height:1.2; }
-  .db-stat .label { font-size:10px; color:var(--dim); text-transform:uppercase; letter-spacing:.05em; }
+  /* ── Stats grid ── */
+  .stats-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:8px; margin-bottom:16px; }
+  .stat-card { background:var(--bg2); border:1px solid var(--border); border-radius:var(--radius-sm); padding:10px; text-align:center; }
+  .stat-card .num { font-size:20px; font-weight:900; color:var(--accent); font-family:'Space Mono',monospace; }
+  .stat-card .label { font-size:10px; color:var(--text3); text-transform:uppercase; letter-spacing:.04em; }
 
-  .table-rows { font-size:12px; }
-  .table-rows .row { display:flex; justify-content:space-between; padding:3px 0; border-bottom:1px solid #1a1d27; }
-  .table-rows .row:last-child { border:none; }
-  .table-rows .tbl-name { color:#9ca3af; font-family:monospace; }
-  .table-rows .tbl-count { color:var(--a); font-weight:700; }
+  /* ── Table rows ── */
+  .tbl-row { display:flex; justify-content:space-between; padding:4px 0; border-bottom:1px solid var(--border); font-size:12px; }
+  .tbl-row:last-child { border:none; }
+  .tbl-name { color:var(--text2); font-family:monospace; }
+  .tbl-val { color:var(--accent); font-weight:700; font-family:'Space Mono',monospace; }
 
-  /* ── Upload drop zone ── */
-  .dropzone {
-    border:2px dashed var(--border); border-radius:var(--r);
-    padding:32px 20px; text-align:center; cursor:pointer;
-    transition:border-color .2s, background .2s; margin-bottom:12px;
-  }
-  .dropzone:hover, .dropzone.dragover { border-color:var(--a); background:rgba(34,197,94,.05); }
-  .dropzone .dz-icon { font-size:32px; margin-bottom:8px; }
-  .dropzone .dz-text { font-size:13px; color:var(--dim); }
-  .dropzone .dz-text strong { color:#fff; }
+  /* ── Upload ── */
+  .mode-btns { display:flex; gap:6px; margin-bottom:8px; }
+  .dropzone { border:2px dashed var(--border); border-radius:var(--radius); padding:28px 16px; text-align:center; cursor:pointer; transition:all .2s; }
+  .dropzone:hover,.dropzone.dragover { border-color:var(--accent); background:rgba(34,197,94,.04); }
+  .dropzone .dz-icon { font-size:28px; margin-bottom:6px; }
+  .dropzone .dz-text { font-size:12px; color:var(--text3); }
+  .dropzone .dz-text strong { color:var(--text); }
   .dropzone input { display:none; }
 
   /* ── File list ── */
-  .file-item {
-    background:var(--card); border:1px solid var(--border); border-radius:8px;
-    padding:10px 14px; margin-bottom:6px; display:flex; align-items:center; gap:10px;
-  }
-  .file-item .fi-icon { font-size:20px; flex-shrink:0; }
-  .file-item .fi-body { flex:1; min-width:0; }
-  .file-item .fi-name { font-size:13px; color:#fff; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .file-item .fi-meta { font-size:11px; color:var(--dim); }
-  .file-item .fi-actions { display:flex; gap:4px; flex-shrink:0; }
+  .file-item { display:flex; align-items:center; gap:10px; padding:8px 12px; background:var(--bg2); border:1px solid var(--border); border-radius:var(--radius-sm); margin-bottom:4px; }
+  .fi-body { flex:1; min-width:0; }
+  .fi-name { font-size:12px; font-weight:700; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .fi-meta { font-size:10px; color:var(--text3); }
+  .fi-actions { display:flex; gap:3px; }
 
-  .badge { font-size:10px; padding:2px 7px; border-radius:10px; font-weight:700; text-transform:uppercase; }
-  .badge-green { background:#064e3b; color:#6ee7b7; }
-  .badge-yellow { background:#78350f; color:#fcd34d; }
-  .badge-red { background:#7f1d1d; color:#fca5a5; }
-  .badge-gray { background:#1f2937; color:#9ca3af; }
+  /* ── Badges & buttons ── */
+  .badge { font-size:9px; padding:2px 6px; border-radius:10px; font-weight:700; text-transform:uppercase; }
+  .badge-green { background:rgba(34,197,94,.15); color:var(--up); }
+  .badge-yellow { background:rgba(245,158,11,.15); color:#f59e0b; }
+  .badge-red { background:rgba(239,68,68,.15); color:var(--down); }
+  .badge-gray { background:var(--bg3); color:var(--text3); }
 
-  /* ── Buttons ── */
-  .btn { padding:5px 12px; border:none; border-radius:6px; font-weight:700; font-size:11px; cursor:pointer; transition:all .15s; }
-  .btn-sm { padding:3px 8px; font-size:10px; }
-  .btn-primary { background:var(--p); color:#fff; }
-  .btn-primary:hover { background:#0d3d22; }
-  .btn-danger { background:#7f1d1d; color:#fca5a5; }
-  .btn-danger:hover { background:#991b1b; }
-  .btn-ghost { background:transparent; color:var(--dim); border:1px solid var(--border); }
-  .btn-ghost:hover { color:#fff; border-color:var(--a); }
-  .btn:disabled { opacity:.4; cursor:not-allowed; }
+  .btn { padding:4px 10px; border:none; border-radius:var(--radius-sm); font-weight:700; font-size:11px; cursor:pointer; transition:all .15s; font-family:inherit; }
+  .btn-primary { background:var(--accent); color:#fff; }
+  .btn-primary:hover { filter:brightness(1.15); }
+  .btn-ghost { background:transparent; color:var(--text2); border:1px solid var(--border); }
+  .btn-ghost:hover { color:var(--text); border-color:var(--accent); }
+  .btn-danger { background:rgba(239,68,68,.15); color:var(--down); }
+  .btn-danger:hover { background:rgba(239,68,68,.25); }
+  .btn-sm { padding:2px 6px; font-size:10px; }
 
-  /* ── Progress bar ── */
-  .progress-wrap { margin:10px 0; }
-  .progress-bar { height:6px; background:#1f2937; border-radius:3px; overflow:hidden; }
-  .progress-fill { height:100%; background:var(--a); border-radius:3px; transition:width .3s; }
-  .progress-text { font-size:11px; color:var(--dim); margin-top:4px; display:flex; justify-content:space-between; }
+  /* ── Progress ── */
+  .progress-card { background:var(--bg2); border:1px solid var(--accent); border-radius:var(--radius); padding:14px 16px; }
+  .pbar { height:5px; background:var(--bg3); border-radius:3px; overflow:hidden; margin:8px 0; }
+  .pbar-fill { height:100%; background:var(--accent); border-radius:3px; transition:width .3s; }
+  .p-grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:4px; font-size:11px; color:var(--text3); }
+  .p-grid b { color:var(--accent); font-family:'Space Mono',monospace; }
 
-  /* ── Settings form ── */
+  /* ── Settings ── */
   .setting-row { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
-  .setting-row label { font-size:12px; color:var(--dim); min-width:100px; flex-shrink:0; }
-  .setting-row input { flex:1; padding:6px 10px; background:#1a1d27; border:1px solid var(--border); border-radius:6px; color:#fff; font-size:12px; font-family:monospace; }
-  .setting-row input:focus { outline:none; border-color:var(--a); }
+  .setting-row label { font-size:11px; color:var(--text3); min-width:80px; }
+  .setting-row input { flex:1; padding:5px 8px; background:var(--bg3); border:1px solid var(--border); border-radius:var(--radius-sm); color:var(--text); font-size:11px; font-family:monospace; }
+  .setting-row input:focus { outline:none; border-color:var(--accent); }
 
-  /* ── Indicator search ── */
-  .search-box { position:relative; margin-bottom:12px; }
-  .search-box input {
-    width:100%; padding:8px 12px 8px 32px; background:#1a1d27; border:1px solid var(--border);
-    border-radius:8px; color:#fff; font-size:13px;
-  }
-  .search-box input:focus { outline:none; border-color:var(--a); box-shadow:0 0 0 2px rgba(34,197,94,.15); }
-  .search-box input::placeholder { color:#4b5563; }
-  .search-box .search-icon { position:absolute; left:10px; top:50%; transform:translateY(-50%); font-size:14px; color:#4b5563; pointer-events:none; }
-  .search-hint { font-size:11px; color:#4b5563; margin-top:4px; }
+  /* ── Search ── */
+  .search-wrap { position:relative; margin-bottom:8px; }
+  .search-wrap input { width:100%; padding:7px 10px 7px 28px; background:var(--bg3); border:1px solid var(--border); border-radius:var(--radius-sm); color:var(--text); font-size:12px; }
+  .search-wrap input:focus { outline:none; border-color:var(--accent); }
+  .search-wrap input::placeholder { color:var(--text3); }
+  .search-wrap .si { position:absolute; left:8px; top:50%; transform:translateY(-50%); font-size:12px; }
+  .search-hint { font-size:10px; color:var(--text3); margin-bottom:6px; }
 
-  .fn-results { max-height:calc(100vh - 340px); overflow-y:auto; }
-  .fn-result-item {
-    padding:8px 12px; margin-bottom:4px; background:var(--card); border:1px solid var(--border);
-    border-radius:6px; cursor:pointer; transition:border-color .15s;
-  }
-  .fn-result-item:hover { border-color:var(--a); }
-  .fn-result-item .fn-name { font-size:13px; font-weight:700; color:var(--a); font-family:monospace; }
-  .fn-result-item .fn-cat { font-size:10px; color:var(--dim); text-transform:uppercase; margin-left:6px; }
-  .fn-result-item .fn-desc { font-size:11px; color:#9ca3af; margin-top:2px; }
-  .fn-result-item .fn-formula { font-size:11px; color:#4b5563; font-family:monospace; margin-top:2px; }
+  .fn-item { padding:6px 10px; background:var(--bg2); border:1px solid var(--border); border-radius:var(--radius-sm); margin-bottom:3px; cursor:pointer; transition:border-color .15s; }
+  .fn-item:hover { border-color:var(--accent); }
+  .fn-name { font-size:12px; font-weight:700; color:var(--accent); font-family:monospace; }
+  .fn-cat { font-size:9px; color:var(--text3); text-transform:uppercase; margin-left:4px; }
+  .fn-desc { font-size:10px; color:var(--text2); margin-top:1px; }
 
-  .fn-count-badge { font-size:11px; color:var(--a); font-weight:700; }
+  .fn-scroll { max-height:500px; overflow-y:auto; }
+  .cat-header { font-size:10px; font-weight:700; text-transform:uppercase; color:var(--text3); padding:6px 0 3px; letter-spacing:.05em; }
 
   /* ── Sync history ── */
-  .sync-list { font-size:12px; }
-  .sync-item { display:grid; grid-template-columns:70px 50px 1fr 60px; gap:6px; padding:4px 0; border-bottom:1px solid #1a1d27; align-items:center; }
-  .sync-item:last-child { border:none; }
+  .sync-row { display:grid; grid-template-columns:80px 70px 1fr 100px; gap:4px; padding:3px 0; border-bottom:1px solid var(--border); font-size:11px; align-items:center; }
+  .sync-row:last-child { border:none; }
 
   /* ── Toast ── */
-  .toast { position:fixed; bottom:20px; right:20px; padding:10px 16px; border-radius:8px; font-size:13px; font-weight:600; color:#fff; z-index:999; animation:slideUp .3s; }
-  .toast-ok { background:#064e3b; border:1px solid var(--a); }
-  .toast-err { background:#7f1d1d; border:1px solid #ef4444; }
-  @keyframes slideUp { from{transform:translateY(20px);opacity:0} to{transform:translateY(0);opacity:1} }
-
-  /* ── Responsive ── */
-  @media (max-width:900px) {
-    .container { grid-template-columns:1fr; }
-    .right { border-top:1px solid var(--border); }
-  }
+  .toast { position:fixed; bottom:36px; right:16px; padding:8px 14px; border-radius:8px; font-size:12px; font-weight:600; z-index:999; animation:slideUp .3s; }
+  .toast-ok { background:rgba(34,197,94,.15); color:var(--up); border:1px solid rgba(34,197,94,.3); }
+  .toast-err { background:rgba(239,68,68,.15); color:var(--down); border:1px solid rgba(239,68,68,.3); }
+  @keyframes slideUp { from{transform:translateY(12px);opacity:0} to{transform:translateY(0);opacity:1} }
 </style>
 </head>
-<body>
+<body data-theme="terminal">
 
 <div class="topbar">
   <span class="eyes">🫣</span>
-  <h1>Ticker<span>Boo</span> <span style="font-weight:400;font-size:13px;color:var(--dim)">Data Manager</span></h1>
+  <h1>Ticker<b>Boo</b> Data Manager</h1>
   <div class="spacer"></div>
   <a href="/">Home</a>
   <a href="/admin/playground">Playground</a>
-  <a href="/admin/dashboard">Dashboard</a>
-  <a href="/docs">API Docs</a>
+  <a href="/chart/VNM?overlays=MA20,RSI,BB">Charts</a>
 </div>
 
-<div class="container">
+<!-- ── TABS ── -->
+<div class="tab-bar">
+  <div class="tab active" onclick="switchTab('general')">📊 General</div>
+  <div class="tab" onclick="switchTab('files')">📁 Data Files</div>
+  <div class="tab" onclick="switchTab('search')">🔍 Functions</div>
+  <div class="tab" onclick="switchTab('settings')">⚙️ Settings</div>
+</div>
 
-  <!-- ═══════════ LEFT: Data files + DB info ═══════════ -->
-  <div class="left">
-
-    <!-- DB Overview -->
-    <div class="section">
-      <div class="section-title"><span class="icon">📊</span> Database Overview</div>
-      <div class="db-grid" id="dbGrid">
-        <div class="db-stat"><div class="num" id="dbSize">—</div><div class="label">DB Size (MB)</div></div>
-        <div class="db-stat"><div class="num" id="dbTickers">—</div><div class="label">Tickers</div></div>
-        <div class="db-stat"><div class="num" id="dbBars">—</div><div class="label">Daily Bars</div></div>
-        <div class="db-stat"><div class="num" id="dbRange">—</div><div class="label">Date Range</div></div>
-        <div class="db-stat"><div class="num" id="dbUploads">—</div><div class="label">Uploads (MB)</div></div>
-        <div class="db-stat"><div class="num" id="dbFiles">—</div><div class="label">Data Files</div></div>
-      </div>
-      <div class="card">
-        <div class="section-title" style="margin-bottom:6px"><span class="icon">🗄️</span> Table Sizes</div>
-        <div class="table-rows" id="tableRows">Loading...</div>
-      </div>
+<!-- ═══ TAB: GENERAL ═══ -->
+<div class="tab-content active" id="tab-general">
+  <div class="section">
+    <div class="section-title">📊 Database Overview</div>
+    <div class="stats-grid" id="dbGrid">
+      <div class="stat-card"><div class="num" id="dbTickers">—</div><div class="label">Tickers</div></div>
+      <div class="stat-card"><div class="num" id="dbBars">—</div><div class="label">Daily Bars</div></div>
+      <div class="stat-card"><div class="num" id="dbSize">—</div><div class="label">DB (MB)</div></div>
+      <div class="stat-card"><div class="num" id="dbEarliest">—</div><div class="label">Earliest</div></div>
+      <div class="stat-card"><div class="num" id="dbLatest">—</div><div class="label">Latest</div></div>
+      <div class="stat-card"><div class="num" id="dbUploads">—</div><div class="label">Uploads (MB)</div></div>
     </div>
-
-    <!-- Upload Zone -->
-    <div class="section">
-      <div class="section-title"><span class="icon">📥</span> Upload Data File</div>
-      <div style="display:flex;gap:6px;margin-bottom:8px">
-        <button class="btn btn-primary" id="btnModeFull" onclick="setMode('full')" style="flex:1">⚡ Full Sync</button>
-        <button class="btn btn-ghost" id="btnModePatch" onclick="setMode('patch')" style="flex:1">🩹 Patch</button>
-      </div>
-      <div style="font-size:11px;color:#4b5563;margin-bottom:8px" id="modeHint">
-        ⚡ <b>Full</b>: Drop indexes → plain INSERT → rebuild. ~20K rps. Use for first load or re-import.
-      </div>
-      <div class="dropzone" id="dropzone" onclick="document.getElementById('fileInput').click()">
-        <div class="dz-icon">📦</div>
-        <div class="dz-text">
-          <strong>Drop CafeF ZIP here</strong> or click to browse<br>
-          <span style="font-size:11px">AmiBroker format (.zip or .csv) — 100K-record batches, raw sqlite3</span>
-        </div>
-        <input type="file" id="fileInput" accept=".zip,.csv,.txt">
-      </div>
-    </div>
-
-    <!-- Active Ingestion -->
-    <div class="section" id="ingestionPanel" style="display:none">
-      <div class="section-title"><span class="icon">⚙️</span> Active Ingestion</div>
-      <div class="card">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-          <span style="font-weight:700;font-size:13px;color:#fff" id="ingFileName">—</span>
-          <span class="badge badge-yellow" id="ingStatus">—</span>
-        </div>
-        <div class="progress-wrap">
-          <div class="progress-bar"><div class="progress-fill" id="ingBar" style="width:0%"></div></div>
-          <div class="progress-text">
-            <span id="ingPhase">—</span>
-            <span id="ingElapsed">—</span>
-          </div>
-        </div>
-        <div style="font-size:11px;color:var(--dim);display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-top:6px">
-          <span>Parsed: <b id="ingParsed" style="color:var(--a)">0</b></span>
-          <span>Inserted: <b id="ingUpserted" style="color:var(--a)">0</b></span>
-          <span>Tickers: <b id="ingTickers" style="color:var(--a)">0</b></span>
-          <span>Batch: <b id="ingBatch" style="color:var(--a)">0/0</b></span>
-          <span>Speed: <b id="ingRps" style="color:var(--a)">0</b> rps</span>
-          <span>Mode: <b id="ingMode" style="color:var(--a)">—</b></span>
-        </div>
-      </div>
-    </div>
-
-    <!-- Data Files list -->
-    <div class="section">
-      <div class="section-title"><span class="icon">📁</span> Data Files <span class="fn-count-badge" id="fileCount">0</span></div>
-      <div id="fileList">Loading...</div>
-    </div>
-
-    <!-- Recent Syncs -->
-    <div class="section">
-      <div class="section-title"><span class="icon">🔄</span> Recent Sync History</div>
-      <div class="card">
-        <div class="sync-list" id="syncHistory">Loading...</div>
-      </div>
-    </div>
-
   </div>
 
-  <!-- ═══════════ RIGHT: Settings + Indicator Search ═══════════ -->
-  <div class="right">
+  <div class="section">
+    <div class="section-title">🗄️ Table Sizes</div>
+    <div class="card" id="tableRows">Loading...</div>
+  </div>
 
-    <!-- Data Source Settings -->
-    <div class="section">
-      <div class="section-title"><span class="icon">⚙️</span> Data Source Settings</div>
-      <div class="card">
-        <div class="setting-row">
-          <label>CafeF URL</label>
-          <input id="cfUrl" placeholder="https://cafef1.mediacdn.vn/data/ami_data/">
-        </div>
-        <div style="display:flex;gap:6px;margin-top:8px">
-          <button class="btn btn-primary" onclick="saveSettings()">💾 Save</button>
-          <button class="btn btn-ghost" onclick="loadSettings()">↻ Reset</button>
-        </div>
-        <div style="font-size:11px;color:#4b5563;margin-top:6px">
-          Prefix used to construct download URLs. Change if CafeF moves their CDN.
-        </div>
+  <!-- Ingestion progress (shown when active) -->
+  <div class="section" id="ingPanel" style="display:none">
+    <div class="section-title">⚙️ Active Ingestion</div>
+    <div class="progress-card">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <span style="font-weight:700;font-size:13px" id="ingFile">—</span>
+        <span class="badge badge-yellow" id="ingBadge">—</span>
+      </div>
+      <div class="pbar"><div class="pbar-fill" id="ingBar" style="width:0%"></div></div>
+      <div class="p-grid">
+        <span>Parsed: <b id="ingP">0</b></span>
+        <span>Inserted: <b id="ingI">0</b></span>
+        <span>Tickers: <b id="ingT">0</b></span>
+        <span>Batch: <b id="ingB">0/0</b></span>
+        <span>Speed: <b id="ingR">0</b> rps</span>
+        <span>Mode: <b id="ingM">—</b></span>
       </div>
     </div>
+  </div>
 
-    <!-- Quick actions -->
-    <div class="section">
-      <div class="section-title"><span class="icon">⚡</span> Quick Actions</div>
-      <div style="display:flex;flex-wrap:wrap;gap:6px">
-        <button class="btn btn-ghost" onclick="seedMock()">🌱 Seed Mock Data</button>
-        <button class="btn btn-ghost" onclick="refreshAll()">↻ Refresh All</button>
-        <button class="btn btn-danger btn-sm" onclick="purgeData('mock')" title="Delete mock data only">🗑 Purge Mock</button>
-        <button class="btn btn-danger btn-sm" onclick="purgeData('all')" title="Delete ALL OHLCV data">🗑 Purge All</button>
-      </div>
-    </div>
+  <div class="section">
+    <div class="section-title">🔄 Sync History</div>
+    <div class="card" id="syncHist">Loading...</div>
+  </div>
 
-    <!-- Indicator Search -->
-    <div class="section">
-      <div class="section-title"><span class="icon">🔍</span> Function Search <span class="fn-count-badge" id="fnTotal">0</span></div>
-      <div class="search-box">
-        <span class="search-icon">🔎</span>
-        <input id="fnSearch" placeholder="ichi, boll, macd, trend, snap…" oninput="searchFunctions()" autocomplete="off">
-      </div>
-      <div class="search-hint" id="searchHint">Type to search by name, alias, or keyword. Multi-word supported.</div>
-      <div class="fn-results" id="fnResults"></div>
-    </div>
-
+  <div style="display:flex;gap:6px;flex-wrap:wrap">
+    <button class="btn btn-ghost" onclick="seedMock()">🌱 Seed Mock</button>
+    <button class="btn btn-ghost" onclick="refreshAll()">↻ Refresh</button>
+    <button class="btn btn-ghost" onclick="cleanup()">🧹 Fix Stuck</button>
+    <button class="btn btn-danger btn-sm" onclick="purge('mock')">🗑 Purge Mock</button>
+    <button class="btn btn-danger btn-sm" onclick="purge('all')">🗑 Purge All</button>
   </div>
 </div>
+
+<!-- ═══ TAB: DATA FILES ═══ -->
+<div class="tab-content" id="tab-files">
+  <div class="section">
+    <div class="section-title">📥 Upload</div>
+    <div class="mode-btns">
+      <button class="btn btn-primary" id="mFull" onclick="setMode('full')">⚡ Full Sync</button>
+      <button class="btn btn-ghost" id="mPatch" onclick="setMode('patch')">🩹 Patch</button>
+    </div>
+    <div id="modeHint" style="font-size:10px;color:var(--text3);margin-bottom:6px">⚡ Turbo: drop indexes → plain INSERT → rebuild. ~80K rps.</div>
+    <div class="dropzone" id="dropzone" onclick="document.getElementById('fInput').click()">
+      <div class="dz-icon">📦</div>
+      <div class="dz-text"><strong>Drop CafeF ZIP here</strong> or click to browse</div>
+      <input type="file" id="fInput" accept=".zip,.csv,.txt">
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">📁 Files <span style="color:var(--accent)" id="fCount">0</span></div>
+    <div id="fileList">Loading...</div>
+  </div>
+</div>
+
+<!-- ═══ TAB: FUNCTIONS ═══ -->
+<div class="tab-content" id="tab-search">
+  <div class="section">
+    <div class="section-title">🔍 Function Search <span style="color:var(--accent)" id="fnTot">0</span></div>
+    <div class="search-wrap">
+      <span class="si">🔎</span>
+      <input id="fnQ" placeholder="ichi, boll, macd, rsi, snap, trend…" oninput="searchFn()" autocomplete="off">
+    </div>
+    <div class="search-hint" id="sHint">Type to search by name, alias, or keyword</div>
+    <div class="fn-scroll" id="fnResults"></div>
+  </div>
+</div>
+
+<!-- ═══ TAB: SETTINGS ═══ -->
+<div class="tab-content" id="tab-settings">
+  <div class="section">
+    <div class="section-title">⚙️ Data Source</div>
+    <div class="card">
+      <div class="setting-row">
+        <label>CafeF URL</label>
+        <input id="cfUrl" placeholder="https://cafef1.mediacdn.vn/data/ami_data/">
+      </div>
+      <div style="display:flex;gap:6px;margin-top:6px">
+        <button class="btn btn-primary" onclick="saveCfg()">💾 Save</button>
+        <button class="btn btn-ghost" onclick="loadCfg()">↻ Reset</button>
+      </div>
+      <div style="font-size:10px;color:var(--text3);margin-top:6px">URL prefix for CafeF CDN. Change if they move their files.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ STATUS BAR ═══ -->
+<div class="status-bar">
+  <div class="sb-left">
+    <span class="dot dot-green" id="sbDot"></span>
+    <span id="sbText">Ready</span>
+  </div>
+  <div class="sb-right">
+    <span id="sbVer">v—</span>
+    <button class="sb-palette-btn" onclick="togglePicker()">
+      <div class="mini-swatch"></div> Theme
+    </button>
+  </div>
+</div>
+
+<!-- ═══ THEME PICKER ═══ -->
+<div class="theme-picker-backdrop" id="tpBack" onclick="togglePicker()"></div>
+<div class="theme-picker" id="tpPicker"></div>
 
 <script>
-const API = '';
-let _ingestMode = 'full';
+const API='';
+const THEMES=[
+  {id:"terminal",emoji:"💻",label:"Terminal",colors:["#0d1117","#22c55e"]},
+  {id:"dark",emoji:"🌑",label:"Void Dark",colors:["#0a0a0f","#7c4dff"]},
+  {id:"midnight",emoji:"🌃",label:"Midnight",colors:["#030818","#3d8bff"]},
+  {id:"amber",emoji:"🕯️",label:"Bloomberg",colors:["#0d0900","#ffab00"]},
+  {id:"matrix",emoji:"👾",label:"Matrix",colors:["#000500","#00ff41"]},
+  {id:"light",emoji:"☀️",label:"Light",colors:["#f8f9fc","#5c35d4"]},
+  {id:"arctic",emoji:"🏔️",label:"Arctic",colors:["#f0f4f8","#0288d1"]},
+  {id:"retro",emoji:"📰",label:"Retro",colors:["#fcfaf2","#8d6e63"]},
+];
 
-function setMode(m) {
-  _ingestMode = m;
-  document.getElementById('btnModeFull').className = 'btn ' + (m==='full' ? 'btn-primary' : 'btn-ghost');
-  document.getElementById('btnModePatch').className = 'btn ' + (m==='patch' ? 'btn-primary' : 'btn-ghost');
-  document.getElementById('modeHint').innerHTML = m === 'full'
-    ? '⚡ <b>Full</b>: Drop indexes → plain INSERT → rebuild. ~20K rps. Use for first load or re-import.'
-    : '🩹 <b>Patch</b>: INSERT OR IGNORE — skip existing rows. Use for daily catchup / fill gaps.';
+// ── Theme ───────────────────────────────────────────────────────────────
+function applyTheme(id){document.body.setAttribute('data-theme',id);localStorage.setItem('tb-theme',id);renderPicker();}
+(function(){const s=localStorage.getItem('tb-theme');if(s)applyTheme(s);})();
+
+function renderPicker(){
+  const cur=document.body.getAttribute('data-theme');
+  document.getElementById('tpPicker').innerHTML=THEMES.map(t=>`
+    <div class="theme-opt ${t.id===cur?'active':''}" onclick="applyTheme('${t.id}')">
+      <div class="swatch"><div class="s-bg" style="background:${t.colors[0]}"></div><div class="s-acc" style="background:${t.colors[1]}"></div></div>
+      <span class="t-emoji">${t.emoji}</span>
+      <span class="t-label">${t.label}</span>
+    </div>`).join('');
+}
+renderPicker();
+
+function togglePicker(){
+  const p=document.getElementById('tpPicker'),b=document.getElementById('tpBack');
+  const open=p.classList.toggle('open');b.classList.toggle('open',open);
 }
 
-// ══════════════════════════════════════════════════════════════════════════
-// DB Info
-// ══════════════════════════════════════════════════════════════════════════
-async function loadDbInfo() {
-  try {
-    const r = await fetch(`${API}/admin/data/db-info`);
-    const d = await r.json();
-    document.getElementById('dbSize').textContent = d.total_size_mb || '0';
-    document.getElementById('dbUploads').textContent = d.uploads_size_mb || '0';
-
-    const o = d.ohlcv_summary || {};
-    document.getElementById('dbTickers').textContent = (o.tickers || 0).toLocaleString();
-    document.getElementById('dbBars').textContent = (o.bars || 0).toLocaleString();
-    document.getElementById('dbRange').textContent = o.earliest && o.latest
-      ? `${o.earliest.slice(2)} → ${o.latest.slice(2)}` : '—';
-
-    document.getElementById('dbFiles').textContent = (d.tables?.data_files || 0);
-
-    // Table sizes
-    const tables = d.tables || {};
-    const rows = Object.entries(tables)
-      .sort((a,b) => b[1] - a[1])
-      .map(([name, cnt]) => `<div class="row"><span class="tbl-name">${name}</span><span class="tbl-count">${cnt.toLocaleString()}</span></div>`)
-      .join('');
-    document.getElementById('tableRows').innerHTML = rows || '<span style="color:var(--dim)">No tables</span>';
-  } catch(e) { console.error('loadDbInfo', e); }
+// ── Tabs ────────────────────────────────────────────────────────────────
+function switchTab(id){
+  document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',t.textContent.includes(id==='general'?'General':id==='files'?'Files':id==='search'?'Functions':'Settings')));
+  document.querySelectorAll('.tab-content').forEach(c=>c.classList.toggle('active',c.id==='tab-'+id));
 }
 
-// ══════════════════════════════════════════════════════════════════════════
-// File Upload
-// ══════════════════════════════════════════════════════════════════════════
-const dropzone = document.getElementById('dropzone');
-const fileInput = document.getElementById('fileInput');
-
-['dragenter','dragover'].forEach(e => dropzone.addEventListener(e, ev => { ev.preventDefault(); dropzone.classList.add('dragover'); }));
-['dragleave','drop'].forEach(e => dropzone.addEventListener(e, ev => { ev.preventDefault(); dropzone.classList.remove('dragover'); }));
-
-dropzone.addEventListener('drop', ev => {
-  const files = ev.dataTransfer.files;
-  if (files.length) uploadFile(files[0]);
-});
-
-fileInput.addEventListener('change', () => {
-  if (fileInput.files.length) uploadFile(fileInput.files[0]);
-  fileInput.value = '';
-});
-
-async function uploadFile(file) {
-  const dz = document.getElementById('dropzone');
-  const origHTML = dz.innerHTML;
-  dz.innerHTML = `<div class="dz-icon">⏳</div><div class="dz-text">Uploading <strong>${file.name}</strong> (${(file.size/1024/1024).toFixed(1)} MB)...</div>`;
-
-  const form = new FormData();
-  form.append('file', file);
-
-  try {
-    const r = await fetch(`${API}/admin/data/ingest-and-upload?mode=${_ingestMode}`, { method:'POST', body:form });
-    const d = await r.json();
-
-    if (d.status === 'started') {
-      toast(`Ingestion started for ${file.name}`, 'ok');
-      pollIngestion();
-    } else if (d.status === 'queued') {
-      toast(`File uploaded (id=${d.file_id}). ${d.message}`, 'ok');
-    } else {
-      toast(d.message || 'Uploaded', 'ok');
-    }
-
-    loadFiles();
-    loadDbInfo();
-  } catch(e) {
-    toast('Upload failed: ' + e.message, 'err');
-  }
-  dz.innerHTML = origHTML;
+// ── DB Info ─────────────────────────────────────────────────────────────
+async function loadDb(){
+  try{
+    const d=await(await fetch(`${API}/admin/data/db-info`)).json();
+    const o=d.ohlcv_summary||{};
+    document.getElementById('dbTickers').textContent=(o.tickers||0).toLocaleString();
+    document.getElementById('dbBars').textContent=(o.bars||0).toLocaleString();
+    document.getElementById('dbSize').textContent=d.total_size_mb||'0';
+    document.getElementById('dbEarliest').textContent=o.earliest||'—';
+    document.getElementById('dbLatest').textContent=o.latest||'—';
+    document.getElementById('dbUploads').textContent=d.uploads_size_mb||'0';
+    const t=d.tables||{};
+    document.getElementById('tableRows').innerHTML=Object.entries(t).sort((a,b)=>b[1]-a[1]).map(([n,c])=>`<div class="tbl-row"><span class="tbl-name">${n}</span><span class="tbl-val">${c.toLocaleString()}</span></div>`).join('')||'—';
+    document.getElementById('sbText').textContent=`${(o.tickers||0).toLocaleString()} tickers · ${(o.bars||0).toLocaleString()} bars`;
+    document.getElementById('sbDot').className='dot '+(o.tickers>0?'dot-green':'dot-red');
+  }catch(e){console.error(e);}
+  try{const h=await(await fetch(`${API}/health`)).json();document.getElementById('sbVer').textContent='v'+h.version;}catch(e){}
 }
 
-// ══════════════════════════════════════════════════════════════════════════
-// File List
-// ══════════════════════════════════════════════════════════════════════════
-async function loadFiles() {
-  try {
-    const r = await fetch(`${API}/admin/data/files`);
-    const d = await r.json();
-    const files = d.files || [];
-    document.getElementById('fileCount').textContent = files.length;
+// ── Upload ──────────────────────────────────────────────────────────────
+let _mode='full';
+function setMode(m){_mode=m;document.getElementById('mFull').className='btn '+(m==='full'?'btn-primary':'btn-ghost');document.getElementById('mPatch').className='btn '+(m==='patch'?'btn-primary':'btn-ghost');document.getElementById('modeHint').textContent=m==='full'?'⚡ Turbo: drop indexes → plain INSERT → rebuild. ~80K rps.':'🩹 Patch: INSERT OR IGNORE — skip existing rows.';}
 
-    if (!files.length) {
-      document.getElementById('fileList').innerHTML = '<div style="color:var(--dim);font-size:13px;text-align:center;padding:16px">No data files yet. Drop a CafeF ZIP above.</div>';
-      return;
-    }
+const dz=document.getElementById('dropzone'),fi=document.getElementById('fInput');
+['dragenter','dragover'].forEach(e=>dz.addEventListener(e,ev=>{ev.preventDefault();dz.classList.add('dragover');}));
+['dragleave','drop'].forEach(e=>dz.addEventListener(e,ev=>{ev.preventDefault();dz.classList.remove('dragover');}));
+dz.addEventListener('drop',ev=>{if(ev.dataTransfer.files.length)upload(ev.dataTransfer.files[0]);});
+fi.addEventListener('change',()=>{if(fi.files.length)upload(fi.files[0]);fi.value='';});
 
-    document.getElementById('fileList').innerHTML = files.map(f => {
-      const sizeMB = (f.file_size / 1024 / 1024).toFixed(1);
-      const statusBadge = {
-        'uploaded': '<span class="badge badge-gray">uploaded</span>',
-        'ingesting': '<span class="badge badge-yellow">ingesting</span>',
-        'ingested': '<span class="badge badge-green">ingested</span>',
-        'failed': '<span class="badge badge-red">failed</span>',
-      }[f.status] || `<span class="badge badge-gray">${f.status}</span>`;
+async function upload(file){
+  dz.innerHTML=`<div class="dz-icon">⏳</div><div class="dz-text">Uploading <strong>${file.name}</strong> (${(file.size/1048576).toFixed(1)} MB)...</div>`;
+  const form=new FormData();form.append('file',file);
+  try{
+    const d=await(await fetch(`${API}/admin/data/ingest-and-upload?mode=${_mode}`,{method:'POST',body:form})).json();
+    if(d.status==='started'){toast(`Ingestion started: ${file.name}`,'ok');pollIng();}
+    else toast(d.message||'Uploaded','ok');
+    loadFiles();loadDb();
+  }catch(e){toast('Upload failed: '+e.message,'err');}
+  dz.innerHTML=`<div class="dz-icon">📦</div><div class="dz-text"><strong>Drop CafeF ZIP here</strong> or click to browse</div>`;
+}
 
-      const icon = f.file_type === 'zip' ? '📦' : '📄';
-      const dateInfo = f.date_range_start && f.date_range_end
-        ? `${f.date_range_start} → ${f.date_range_end}` : '';
-      const recordInfo = f.records_inserted
-        ? `${f.records_inserted.toLocaleString()} records · ${f.tickers_count} tickers` : '';
-
-      return `
-        <div class="file-item">
-          <span class="fi-icon">${icon}</span>
-          <div class="fi-body">
-            <div class="fi-name">${f.filename}</div>
-            <div class="fi-meta">${sizeMB} MB · ${f.uploaded_at?.slice(0,16) || '?'} ${dateInfo ? '· '+dateInfo : ''}</div>
-            ${recordInfo ? `<div class="fi-meta">${recordInfo}</div>` : ''}
-            ${f.error_message ? `<div class="fi-meta" style="color:#fca5a5">⚠ ${f.error_message}</div>` : ''}
-          </div>
-          <div class="fi-actions">
-            ${statusBadge}
-            ${f.status !== 'ingesting' ? `<button class="btn btn-primary btn-sm" onclick="ingestFile(${f.id},'full')" title="Full sync (turbo)">⚡</button><button class="btn btn-ghost btn-sm" onclick="ingestFile(${f.id},'patch')" title="Patch (skip existing)">🩹</button>` : ''}
-            <button class="btn btn-danger btn-sm" onclick="deleteFile(${f.id})" title="Delete">✕</button>
-          </div>
-        </div>`;
+// ── Files ───────────────────────────────────────────────────────────────
+async function loadFiles(){
+  try{
+    const d=await(await fetch(`${API}/admin/data/files`)).json();
+    const files=d.files||[];document.getElementById('fCount').textContent=files.length;
+    if(!files.length){document.getElementById('fileList').innerHTML='<div style="color:var(--text3);font-size:12px;text-align:center;padding:16px">No files yet. Drop a ZIP above.</div>';return;}
+    document.getElementById('fileList').innerHTML=files.map(f=>{
+      const mb=(f.file_size/1048576).toFixed(1);
+      const badge={uploaded:'badge-gray',ingesting:'badge-yellow',ingested:'badge-green',failed:'badge-red'}[f.status]||'badge-gray';
+      const info=f.records_inserted?`${f.records_inserted.toLocaleString()} rec · ${f.tickers_count} tk`:'';
+      const dates=f.date_range_start&&f.date_range_end?`${f.date_range_start} → ${f.date_range_end}`:'';
+      return `<div class="file-item"><span style="font-size:18px">${f.file_type==='zip'?'📦':'📄'}</span><div class="fi-body"><div class="fi-name">${f.filename}</div><div class="fi-meta">${mb} MB · ${f.uploaded_at?.slice(0,16)||'?'}${dates?' · '+dates:''}${info?' · '+info:''}</div>${f.error_message?`<div class="fi-meta" style="color:var(--down)">⚠ ${f.error_message}</div>`:''}</div><div class="fi-actions"><span class="badge ${badge}">${f.status}</span>${f.status!=='ingesting'?`<button class="btn btn-primary btn-sm" onclick="ingest(${f.id},'full')">⚡</button><button class="btn btn-ghost btn-sm" onclick="ingest(${f.id},'patch')">🩹</button>`:''}<button class="btn btn-danger btn-sm" onclick="delFile(${f.id})">✕</button></div></div>`;
     }).join('');
-  } catch(e) { console.error('loadFiles', e); }
+  }catch(e){console.error(e);}
 }
 
-async function ingestFile(id, mode) {
-  const m = mode || _ingestMode;
-  try {
-    const r = await fetch(`${API}/admin/data/ingest/${id}?mode=${m}`, { method:'POST' });
-    const d = await r.json();
-    if (d.status === 'started') {
-      toast('Ingestion started', 'ok');
-      pollIngestion();
-    } else {
-      toast(d.detail || d.message || 'Error', 'err');
-    }
-  } catch(e) { toast('Failed: '+e.message, 'err'); }
+async function ingest(id,mode){try{const d=await(await fetch(`${API}/admin/data/ingest/${id}?mode=${mode}`,{method:'POST'})).json();if(d.status==='started'){toast('Ingestion started','ok');pollIng();}else toast(d.detail||d.message||'Error','err');}catch(e){toast('Failed','err');}}
+async function delFile(id){if(!confirm('Delete?'))return;await fetch(`${API}/admin/data/files/${id}`,{method:'DELETE'});toast('Deleted','ok');loadFiles();loadDb();}
+
+// ── Ingestion polling ───────────────────────────────────────────────────
+let _pt=null;
+async function pollIng(){
+  const p=document.getElementById('ingPanel');
+  try{
+    const d=await(await fetch(`${API}/admin/data/ingest/status`)).json();
+    if(!d.is_busy&&!d.active){p.style.display='none';if(_pt){clearInterval(_pt);_pt=null;}loadFiles();loadDb();return;}
+    const a=d.active;if(!a)return;
+    p.style.display='block';switchTab('general');
+    document.getElementById('ingFile').textContent=a.filename;
+    const badge=document.getElementById('ingBadge');badge.textContent=a.status;badge.className='badge '+({parsing:'badge-yellow',ingesting:'badge-yellow',completed:'badge-green',failed:'badge-red'}[a.status]||'badge-gray');
+    const pct=a.batches_total>0?Math.round(a.batches_done/a.batches_total*100):0;
+    document.getElementById('ingBar').style.width=(a.status==='completed'?100:pct)+'%';
+    document.getElementById('ingP').textContent=a.records_parsed.toLocaleString();
+    document.getElementById('ingI').textContent=a.records_inserted.toLocaleString();
+    document.getElementById('ingT').textContent=a.tickers_found.toLocaleString();
+    document.getElementById('ingB').textContent=`${a.batches_done}/${a.batches_total}`;
+    document.getElementById('ingR').textContent=(a.rate_rps||0).toLocaleString();
+    document.getElementById('ingM').textContent=a.mode||'—';
+    document.getElementById('sbDot').className='dot dot-yellow';
+    document.getElementById('sbText').textContent=`Ingesting: ${a.records_inserted.toLocaleString()} @ ${(a.rate_rps||0).toLocaleString()} rps`;
+    if(a.status==='completed'||a.status==='failed'){
+      if(_pt){clearInterval(_pt);_pt=null;}loadFiles();loadDb();
+      if(a.status==='completed')toast(`Done: ${a.records_inserted.toLocaleString()} records @ ${(a.rate_rps||0).toLocaleString()} rps`,'ok');
+      if(a.status==='failed')toast('Failed: '+a.error,'err');
+    }else if(!_pt){_pt=setInterval(pollIng,1500);}
+  }catch(e){console.error(e);}
 }
 
-async function deleteFile(id) {
-  if (!confirm('Delete this data file?')) return;
-  try {
-    await fetch(`${API}/admin/data/files/${id}`, { method:'DELETE' });
-    toast('File deleted', 'ok');
-    loadFiles();
-    loadDbInfo();
-  } catch(e) { toast('Delete failed', 'err'); }
-}
-
-// ══════════════════════════════════════════════════════════════════════════
-// Ingestion Progress Polling
-// ══════════════════════════════════════════════════════════════════════════
-let _pollTimer = null;
-
-async function pollIngestion() {
-  const panel = document.getElementById('ingestionPanel');
-  try {
-    const r = await fetch(`${API}/admin/data/ingest/status`);
-    const d = await r.json();
-
-    if (!d.is_busy && !d.active) {
-      panel.style.display = 'none';
-      if (_pollTimer) { clearInterval(_pollTimer); _pollTimer = null; }
-      loadFiles();
-      loadDbInfo();
-      return;
-    }
-
-    const a = d.active;
-    if (!a) return;
-
-    panel.style.display = 'block';
-    document.getElementById('ingFileName').textContent = a.filename;
-    document.getElementById('ingStatus').textContent = a.status;
-    document.getElementById('ingStatus').className = 'badge ' + ({
-      parsing:'badge-yellow', ingesting:'badge-yellow', completed:'badge-green', failed:'badge-red'
-    }[a.status] || 'badge-gray');
-
-    const pct = a.batches_total > 0 ? Math.round(a.batches_done / a.batches_total * 100) : 0;
-    document.getElementById('ingBar').style.width = (a.status === 'completed' ? 100 : pct) + '%';
-    document.getElementById('ingPhase').textContent = a.phase;
-    document.getElementById('ingElapsed').textContent = a.elapsed_sec + 's';
-    document.getElementById('ingParsed').textContent = a.records_parsed.toLocaleString();
-    document.getElementById('ingUpserted').textContent = a.records_inserted.toLocaleString();
-    document.getElementById('ingTickers').textContent = a.tickers_found.toLocaleString();
-    document.getElementById('ingBatch').textContent = `${a.batches_done}/${a.batches_total}`;
-    document.getElementById('ingRps').textContent = (a.rate_rps || 0).toLocaleString();
-    document.getElementById('ingMode').textContent = a.mode || '—';
-
-    if (a.status === 'completed' || a.status === 'failed') {
-      if (_pollTimer) { clearInterval(_pollTimer); _pollTimer = null; }
-      loadFiles();
-      loadDbInfo();
-      if (a.status === 'completed') toast(`Inserted ${a.records_inserted.toLocaleString()} records @ ${(a.rate_rps||0).toLocaleString()} rps`, 'ok');
-      if (a.status === 'failed') toast('Ingestion failed: ' + a.error, 'err');
-    } else if (!_pollTimer) {
-      _pollTimer = setInterval(pollIngestion, 1500);
-    }
-  } catch(e) { console.error('pollIngestion', e); }
-}
-
-// ══════════════════════════════════════════════════════════════════════════
-// Settings
-// ══════════════════════════════════════════════════════════════════════════
-async function loadSettings() {
-  try {
-    const r = await fetch(`${API}/admin/data/settings`);
-    const d = await r.json();
-    document.getElementById('cfUrl').value = d.cafef_url_prefix || '';
-  } catch(e) { console.error('loadSettings', e); }
-}
-
-async function saveSettings() {
-  const url = document.getElementById('cfUrl').value.trim();
-  try {
-    const r = await fetch(`${API}/admin/data/settings`, {
-      method:'PUT', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ cafef_url_prefix: url }),
-    });
-    const d = await r.json();
-    toast('Settings saved', 'ok');
-  } catch(e) { toast('Save failed', 'err'); }
-}
-
-// ══════════════════════════════════════════════════════════════════════════
-// Quick Actions
-// ══════════════════════════════════════════════════════════════════════════
-async function seedMock() {
-  toast('Seeding mock data...', 'ok');
-  try {
-    const r = await fetch(`${API}/admin/seed`, { method:'POST' });
-    const d = await r.json();
-    toast(`Seeded: ${d.result?.records || 0} records`, 'ok');
-    loadDbInfo();
-  } catch(e) { toast('Seed failed', 'err'); }
-}
-
-async function purgeData(source) {
-  const label = source === 'all' ? 'ALL OHLCV data' : `${source} data`;
-  if (!confirm(`Delete ${label}? This cannot be undone.`)) return;
-  try {
-    await fetch(`${API}/admin/data/purge-ohlcv?source=${source}`, { method:'POST' });
-    toast(`Purged ${label}`, 'ok');
-    loadDbInfo();
-  } catch(e) { toast('Purge failed', 'err'); }
-}
-
-async function refreshAll() {
-  loadDbInfo();
-  loadFiles();
-  loadSettings();
-  loadSyncHistory();
-  pollIngestion();
-  toast('Refreshed', 'ok');
-}
-
-// ══════════════════════════════════════════════════════════════════════════
-// Sync History
-// ══════════════════════════════════════════════════════════════════════════
-async function loadSyncHistory() {
-  try {
-    const r = await fetch(`${API}/admin/stats`);
-    const d = await r.json();
-    const syncs = d.recent_syncs || [];
-    if (!syncs.length) {
-      document.getElementById('syncHistory').innerHTML = '<span style="color:var(--dim)">No sync history</span>';
-      return;
-    }
-    document.getElementById('syncHistory').innerHTML = syncs.map(s => {
-      const statusColor = { completed:'var(--a)', failed:'#ef4444', running:'#f59e0b' }[s.status] || 'var(--dim)';
-      return `<div class="sync-item">
-        <span>${s.sync_type || '?'}</span>
-        <span style="color:${statusColor};font-weight:700">${s.status}</span>
-        <span>${(s.records_count||0).toLocaleString()} records</span>
-        <span style="color:var(--dim)">${s.started_at?.slice(5,16)||'?'}</span>
-      </div>`;
+// ── Sync history ────────────────────────────────────────────────────────
+async function loadSync(){
+  try{
+    const d=await(await fetch(`${API}/admin/stats`)).json();
+    const s=d.recent_syncs||[];
+    if(!s.length){document.getElementById('syncHist').innerHTML='<span style="color:var(--text3);font-size:11px">No history</span>';return;}
+    document.getElementById('syncHist').innerHTML=s.map(x=>{
+      const c={completed:'var(--up)',failed:'var(--down)',running:'#f59e0b',aborted:'var(--text3)',unknown:'var(--text3)'}[x.status]||'var(--text3)';
+      return `<div class="sync-row"><span>${x.sync_type||'?'}</span><span style="color:${c};font-weight:700">${x.status}</span><span>${(x.records_count||0).toLocaleString()} records</span><span>${x.started_at?.slice(5,16)||'?'}</span></div>`;
     }).join('');
-  } catch(e) { console.error('loadSyncHistory', e); }
+  }catch(e){console.error(e);}
 }
 
-// ══════════════════════════════════════════════════════════════════════════
-// Function / Indicator Search
-// ══════════════════════════════════════════════════════════════════════════
-let _searchTimer = null;
-let _allFunctions = [];
+// ── Settings ────────────────────────────────────────────────────────────
+async function loadCfg(){try{const d=await(await fetch(`${API}/admin/data/settings`)).json();document.getElementById('cfUrl').value=d.cafef_url_prefix||'';}catch(e){}}
+async function saveCfg(){try{await fetch(`${API}/admin/data/settings`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({cafef_url_prefix:document.getElementById('cfUrl').value.trim()})});toast('Saved','ok');}catch(e){toast('Failed','err');}}
 
-async function loadAllFunctions() {
-  try {
-    const r = await fetch(`${API}/functions`);
-    const d = await r.json();
-    _allFunctions = d.functions || [];
-    document.getElementById('fnTotal').textContent = _allFunctions.length;
-    renderFunctions(_allFunctions);
-  } catch(e) { console.error('loadAllFunctions', e); }
+// ── Quick actions ───────────────────────────────────────────────────────
+async function seedMock(){toast('Seeding...','ok');try{const d=await(await fetch(`${API}/admin/seed`,{method:'POST'})).json();toast(`Seeded: ${d.result?.records||0} records`,'ok');loadDb();}catch(e){toast('Failed','err');}}
+async function purge(s){if(!confirm(`Delete ${s==='all'?'ALL':'mock'} data?`))return;await fetch(`${API}/admin/data/purge-ohlcv?source=${s}`,{method:'POST'});toast('Purged','ok');loadDb();}
+async function cleanup(){try{const d=await(await fetch(`${API}/admin/data/cleanup`,{method:'POST'})).json();toast(`Cleaned: ${d.syncs_fixed} syncs, ${d.files_fixed} files`,'ok');loadSync();loadFiles();}catch(e){toast('Failed','err');}}
+function refreshAll(){loadDb();loadFiles();loadCfg();loadSync();loadFns();pollIng();toast('Refreshed','ok');}
+
+// ── Function search ─────────────────────────────────────────────────────
+let _st=null,_allFns=[];
+async function loadFns(){try{const d=await(await fetch(`${API}/functions`)).json();_allFns=d.functions||[];document.getElementById('fnTot').textContent=_allFns.length;renderFns(_allFns);}catch(e){}}
+function searchFn(){clearTimeout(_st);_st=setTimeout(async()=>{
+  const q=document.getElementById('fnQ').value.trim();
+  if(!q){renderFns(_allFns);document.getElementById('sHint').textContent='Type to search';return;}
+  try{const d=await(await fetch(`${API}/admin/data/functions/search?q=${encodeURIComponent(q)}`)).json();renderFns(d.results||[]);document.getElementById('sHint').textContent=`${d.count} match${d.count!==1?'es':''}`;
+  }catch(e){const ql=q.toLowerCase();renderFns(_allFns.filter(f=>f.name.toLowerCase().includes(ql)||(f.description||'').toLowerCase().includes(ql)));}
+},200);}
+
+function renderFns(fns){
+  const c=document.getElementById('fnResults');
+  if(!fns.length){c.innerHTML='<div style="color:var(--text3);text-align:center;padding:16px;font-size:12px">No matches</div>';return;}
+  const byCat={};fns.forEach(f=>(byCat[f.category]=byCat[f.category]||[]).push(f));
+  const emojis={price:'📊',momentum:'📈',volatility:'💧',volume:'🔊',composite:'🎯',shortcut:'⚡',metadata:'📋',screen:'🔍',chart:'📈',ma:'〰️'};
+  c.innerHTML=Object.entries(byCat).sort().map(([cat,fs])=>`<div class="cat-header">${emojis[cat]||'📦'} ${cat} (${fs.length})</div>${fs.map(f=>`<div class="fn-item" onclick="window.open('/admin/playground#${f.name}','_blank')"><span class="fn-name">TB.${f.name}</span><span class="fn-cat">${f.category}</span><div class="fn-desc">${f.description||''}</div></div>`).join('')}`).join('');
 }
 
-function searchFunctions() {
-  clearTimeout(_searchTimer);
-  _searchTimer = setTimeout(async () => {
-    const q = document.getElementById('fnSearch').value.trim();
-    if (!q) {
-      renderFunctions(_allFunctions);
-      document.getElementById('searchHint').textContent = 'Type to search by name, alias, or keyword. Multi-word supported.';
-      return;
-    }
-    try {
-      const r = await fetch(`${API}/admin/data/functions/search?q=${encodeURIComponent(q)}`);
-      const d = await r.json();
-      renderFunctions(d.results || []);
-      document.getElementById('searchHint').textContent = `${d.count} match${d.count!==1?'es':''} for "${q}"`;
-    } catch(e) { console.error('searchFunctions', e); }
-  }, 200);
-}
+// ── Toast ───────────────────────────────────────────────────────────────
+function toast(m,t){const e=document.createElement('div');e.className='toast toast-'+t;e.textContent=m;document.body.appendChild(e);setTimeout(()=>e.remove(),4000);}
 
-function renderFunctions(fns) {
-  const container = document.getElementById('fnResults');
-  if (!fns.length) {
-    container.innerHTML = '<div style="color:var(--dim);font-size:13px;text-align:center;padding:20px">No matches</div>';
-    return;
-  }
-
-  // Group by category
-  const byCategory = {};
-  fns.forEach(f => {
-    (byCategory[f.category] = byCategory[f.category] || []).push(f);
-  });
-
-  const catEmojis = { price:'📊', momentum:'📈', volatility:'💧', volume:'🔊', composite:'🎯', shortcut:'⚡', metadata:'📋', screen:'🔍', chart:'📈', ma:'〰️' };
-
-  container.innerHTML = Object.entries(byCategory).sort().map(([cat, catFns]) => `
-    <div style="margin-bottom:8px">
-      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--dim);padding:4px 0;display:flex;align-items:center;gap:4px">
-        ${catEmojis[cat]||'📦'} ${cat} <span style="color:var(--a);font-size:10px">(${catFns.length})</span>
-      </div>
-      ${catFns.map(f => `
-        <div class="fn-result-item" onclick="window.open('/admin/playground#${f.name}','_blank')">
-          <span class="fn-name">TB.${f.name}</span>
-          <span class="fn-cat">${f.category}</span>
-          ${f.tier==='advanced'?'<span class="badge badge-yellow" style="margin-left:4px">adv</span>':''}
-          <div class="fn-desc">${f.description || ''}</div>
-          <div class="fn-formula">${f.formula || ''}</div>
-        </div>
-      `).join('')}
-    </div>
-  `).join('');
-}
-
-// ══════════════════════════════════════════════════════════════════════════
-// Toast
-// ══════════════════════════════════════════════════════════════════════════
-function toast(msg, type) {
-  const el = document.createElement('div');
-  el.className = 'toast toast-' + type;
-  el.textContent = msg;
-  document.body.appendChild(el);
-  setTimeout(() => el.remove(), 4000);
-}
-
-// ══════════════════════════════════════════════════════════════════════════
-// Init
-// ══════════════════════════════════════════════════════════════════════════
-loadDbInfo();
-loadFiles();
-loadSettings();
-loadSyncHistory();
-loadAllFunctions();
-pollIngestion();
+// ── Init ────────────────────────────────────────────────────────────────
+loadDb();loadFiles();loadCfg();loadSync();loadFns();pollIng();
 </script>
 </body>
 </html>

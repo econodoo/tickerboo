@@ -1,0 +1,176 @@
+/*
+ * TICKERBOO THEME SYSTEM
+ * Adapted from BoldWatch theme architecture.
+ * Usage: document.body.setAttribute('data-theme', 'terminal')
+ */
+@import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Barlow+Condensed:wght@400;600;700&family=Share+Tech+Mono&family=IBM+Plex+Mono:wght@400;700&family=Orbitron:wght@400;700&family=Fira+Code:wght@400;700&display=swap');
+
+:root {
+  --transition: 0.25s cubic-bezier(0.4,0,0.2,1);
+  --radius: 10px;
+  --radius-sm: 6px;
+}
+
+/* ── 1. TERMINAL (default — matches TickerBoo brand green) ──────────── */
+[data-theme="terminal"] {
+  --bg:#0d1117; --bg2:#161b22; --bg3:#21262d; --surface:#1c2128;
+  --border:rgba(0,255,136,0.10);
+  --text:#e6edf3; --text2:#8b949e; --text3:#484f58;
+  --up:#00ff88; --down:#ff4560; --accent:#22c55e;
+  --header-bg:rgba(13,17,23,0.97);
+  --font-display:"Share Tech Mono";
+  --bg-pattern:url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='20' cy='20' r='1' fill='%2322c55e' fill-opacity='0.04'/%3E%3C/svg%3E");
+}
+
+/* ── 2. VOID DARK ───────────────────────────────────────────────────── */
+[data-theme="dark"] {
+  --bg:#0a0a0f; --bg2:#111118; --bg3:#1a1a24; --surface:#16161f;
+  --border:rgba(255,255,255,0.08);
+  --text:#f0f0ff; --text2:#8888aa; --text3:#555570;
+  --up:#00e676; --down:#ff5252; --accent:#7c4dff;
+  --header-bg:rgba(10,10,15,0.96);
+  --font-display:"Barlow Condensed";
+  --bg-pattern:url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%237c4dff' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/svg%3E");
+}
+
+/* ── 3. MIDNIGHT BLUE ───────────────────────────────────────────────── */
+[data-theme="midnight"] {
+  --bg:#030818; --bg2:#060d24; --bg3:#0a1435; --surface:#081030;
+  --border:rgba(61,139,255,0.12);
+  --text:#c8d8ff; --text2:#5b8fff; --text3:#2a4880;
+  --up:#3d8bff; --down:#ff4b6e; --accent:#3d8bff;
+  --header-bg:rgba(3,8,24,0.97);
+  --font-display:"Orbitron";
+  --bg-pattern:url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='50' cy='50' r='40' stroke='%233d8bff' stroke-opacity='0.04' stroke-width='0.5' fill='none'/%3E%3Ccircle cx='50' cy='50' r='25' stroke='%233d8bff' stroke-opacity='0.03' stroke-width='0.5' fill='none'/%3E%3C/svg%3E");
+}
+
+/* ── 4. BLOOMBERG AMBER ─────────────────────────────────────────────── */
+[data-theme="amber"] {
+  --bg:#0d0900; --bg2:#150f00; --bg3:#1e1500; --surface:#1a1200;
+  --border:rgba(255,176,0,0.13);
+  --text:#fff9e6; --text2:#ccaa44; --text3:#886622;
+  --up:#ffab00; --down:#ef6c00; --accent:#ffab00;
+  --header-bg:rgba(13,9,0,0.97);
+  --font-display:"IBM Plex Mono";
+  --bg-pattern:url("data:image/svg+xml,%3Csvg width='80' height='80' viewBox='0 0 80 80' xmlns='http://www.w3.org/2000/svg'%3E%3Crect x='10' y='10' width='60' height='60' stroke='%23ffab00' stroke-opacity='0.04' stroke-width='0.5' fill='none'/%3E%3Crect x='20' y='20' width='40' height='40' stroke='%23ffab00' stroke-opacity='0.03' stroke-width='0.5' fill='none'/%3E%3C/svg%3E");
+}
+
+/* ── 5. MATRIX RAIN ─────────────────────────────────────────────────── */
+[data-theme="matrix"] {
+  --bg:#000500; --bg2:#020a02; --bg3:#041004; --surface:#031503;
+  --border:rgba(0,255,65,0.10);
+  --text:#00ff41; --text2:#00aa2b; --text3:#005516;
+  --up:#00ff41; --down:#ff1744; --accent:#00ff41;
+  --header-bg:rgba(0,5,0,0.97);
+  --font-display:"Fira Code";
+  --bg-pattern:url("data:image/svg+xml,%3Csvg width='20' height='40' viewBox='0 0 20 40' xmlns='http://www.w3.org/2000/svg'%3E%3Ctext x='2' y='20' font-family='monospace' font-size='14' fill='%2300ff41' fill-opacity='0.06'%3E01%3C/text%3E%3Ctext x='2' y='38' font-family='monospace' font-size='14' fill='%2300ff41' fill-opacity='0.03'%3E10%3C/text%3E%3C/svg%3E");
+}
+
+/* ── 6. CLEAN LIGHT ─────────────────────────────────────────────────── */
+[data-theme="light"] {
+  --bg:#f8f9fc; --bg2:#ffffff; --bg3:#eef0f5; --surface:#e8eaf0;
+  --border:rgba(0,0,0,0.09);
+  --text:#1a1a2e; --text2:#5c5c7a; --text3:#9ca3af;
+  --up:#16a34a; --down:#dc2626; --accent:#5c35d4;
+  --header-bg:rgba(248,249,252,0.96);
+  --font-display:"Barlow Condensed";
+  --bg-pattern:none;
+}
+
+/* ── 7. ARCTIC ──────────────────────────────────────────────────────── */
+[data-theme="arctic"] {
+  --bg:#f0f4f8; --bg2:#ffffff; --bg3:#e2e8f0; --surface:#d0d8e4;
+  --border:rgba(2,136,209,0.12);
+  --text:#0f172a; --text2:#475569; --text3:#94a3b8;
+  --up:#059669; --down:#e11d48; --accent:#0288d1;
+  --header-bg:rgba(240,244,248,0.96);
+  --font-display:"IBM Plex Mono";
+  --bg-pattern:url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 0L40 40M40 0L0 40' stroke='%230288d1' stroke-opacity='0.04' stroke-width='0.5'/%3E%3C/svg%3E");
+}
+
+/* ── 8. RETRO PAPER ─────────────────────────────────────────────────── */
+[data-theme="retro"] {
+  --bg:#fcfaf2; --bg2:#fffef8; --bg3:#f5f0e0; --surface:#ede8d0;
+  --border:rgba(141,110,99,0.15);
+  --text:#2c1810; --text2:#6d4c41; --text3:#a08070;
+  --up:#4e7c4e; --down:#8b2020; --accent:#8d6e63;
+  --header-bg:rgba(252,250,242,0.96);
+  --font-display:"IBM Plex Mono";
+  --bg-pattern:url("data:image/svg+xml,%3Csvg width='100' height='4' viewBox='0 0 100 4' xmlns='http://www.w3.org/2000/svg'%3E%3Cline x1='0' y1='1' x2='100' y2='1' stroke='%238d6e63' stroke-opacity='0.08' stroke-width='0.5'/%3E%3C/svg%3E");
+}
+
+/* ── BASE STYLES ────────────────────────────────────────────────────── */
+body {
+  font-family: var(--font-display), 'Segoe UI', system-ui, sans-serif;
+  background-color: var(--bg);
+  background-image: var(--bg-pattern);
+  color: var(--text);
+  transition: background-color var(--transition), color var(--transition);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── THEME PICKER COMPONENT ─────────────────────────────────────────── */
+.theme-picker-backdrop {
+  position:fixed; inset:0; background:rgba(0,0,0,0.4);
+  z-index:998; opacity:0; pointer-events:none;
+  transition:opacity .2s;
+}
+.theme-picker-backdrop.open { opacity:1; pointer-events:auto; }
+
+.theme-picker {
+  position:fixed; bottom:48px; right:16px;
+  background:var(--bg2); border:1px solid var(--border);
+  border-radius:12px; padding:10px; z-index:999;
+  display:grid; grid-template-columns:1fr 1fr; gap:4px;
+  min-width:280px; box-shadow:0 12px 40px rgba(0,0,0,0.4);
+  transform:translateY(10px); opacity:0; pointer-events:none;
+  transition:transform .2s, opacity .2s;
+}
+.theme-picker.open { transform:translateY(0); opacity:1; pointer-events:auto; }
+
+.theme-opt {
+  display:flex; align-items:center; gap:8px;
+  padding:6px 10px; border-radius:8px; cursor:pointer;
+  border:1.5px solid transparent;
+  transition:border-color .15s, background .15s;
+}
+.theme-opt:hover { background:var(--bg3); }
+.theme-opt.active { border-color:var(--accent); background:var(--bg3); }
+.theme-opt .swatch {
+  width:22px; height:22px; border-radius:6px;
+  border:1px solid rgba(128,128,128,0.2); flex-shrink:0;
+  position:relative; overflow:hidden;
+}
+.theme-opt .swatch .s-bg { position:absolute; inset:0 50% 0 0; }
+.theme-opt .swatch .s-acc { position:absolute; inset:0 0 0 50%; }
+.theme-opt .t-label { font-size:11px; font-weight:600; color:var(--text); }
+.theme-opt .t-emoji { font-size:14px; }
+
+/* ── STATUS BAR ─────────────────────────────────────────────────────── */
+.status-bar {
+  position:fixed; bottom:0; left:0; right:0; height:28px;
+  background:var(--header-bg); border-top:1px solid var(--border);
+  display:flex; align-items:center; padding:0 12px; gap:12px;
+  font-size:11px; color:var(--text3); z-index:100;
+  backdrop-filter:blur(12px);
+}
+.status-bar .sb-left { display:flex; align-items:center; gap:10px; flex:1; }
+.status-bar .sb-right { display:flex; align-items:center; gap:6px; }
+.status-bar .dot { width:6px; height:6px; border-radius:50%; }
+.status-bar .dot-green { background:var(--up); }
+.status-bar .dot-yellow { background:#f59e0b; animation:pulse 1.5s infinite; }
+.status-bar .dot-red { background:var(--down); }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+.sb-palette-btn {
+  display:flex; align-items:center; gap:4px;
+  padding:2px 8px; border-radius:4px; cursor:pointer;
+  background:transparent; border:1px solid var(--border);
+  color:var(--text2); font-size:11px; font-weight:600;
+  transition:border-color .15s;
+}
+.sb-palette-btn:hover { border-color:var(--accent); color:var(--text); }
+.sb-palette-btn .mini-swatch {
+  width:10px; height:10px; border-radius:3px;
+  background:var(--accent);
+}
