@@ -20,12 +20,13 @@ class Settings:
     port: int         = int(os.getenv("TICKERBOO_PORT", "8688"))
     host: str         = os.getenv("TICKERBOO_HOST", "0.0.0.0")
     root_path: str    = os.getenv("TICKERBOO_ROOT_PATH", "")   # "/tb" on server
-    version: str      = "0.6.0"
+    version: str      = "0.9.0"
 
     # ── Storage ───────────────────────────────────────────────────────────
     db_path: Path     = Path(os.getenv("TICKERBOO_DB_PATH", "./data/tickerboo.db"))
     log_path: Path    = Path(os.getenv("TICKERBOO_LOG_PATH", "./logs/tickerboo.log"))
     log_level: str    = os.getenv("TICKERBOO_LOG_LEVEL", "DEBUG")
+    uploads_dir: Path = Path(os.getenv("TICKERBOO_UPLOADS_DIR", "./data/uploads"))
 
     # ── Data sources ─────────────────────────────────────────────────────
     cafef_url_prefix: str = os.getenv(

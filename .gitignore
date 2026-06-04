@@ -25,8 +25,14 @@ data/*.db-wal
 data/*.db-shm
 data/*.parquet
 data/downloads/
+data/uploads/
+**/data/*.db
+**/data/*.db-wal
+**/data/*.db-shm
+**/data/uploads/
 logs/*.log
 logs/*.log.*
+**/logs/*.log
 
 # OS
 .DS_Store

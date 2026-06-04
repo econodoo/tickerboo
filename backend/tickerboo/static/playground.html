@@ -93,8 +93,14 @@
     <div style="flex:1"></div>
     <button class="btn btn-secondary" style="padding:2px 8px;font-size:11px" onclick="doSync('catchup')">Sync</button>
   </div>
+  <div style="padding:8px 12px;border-bottom:1px solid #e5e7eb">
+    <input id="fnSearchInput" type="text" placeholder="Search: ichi, boll, rsi…" oninput="filterFunctions()" autocomplete="off"
+      style="width:100%;padding:5px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:12px;background:#f9fafb;color:var(--t)" />
+    <div id="searchStatus" style="font-size:10px;color:#9ca3af;margin-top:2px;display:none"></div>
+  </div>
   <div class="sidebar-list" id="fnList"><!-- filled by JS --></div>
   <div class="admin-links">
+    <a href="/admin/data">💾 Data Manager</a>
     <a href="/chart/VNM?tf=1d&n=200&overlays=MA20,RSI,BB" target="_blank">📈 VNM Chart (demo)</a>
     <a href="/admin/analytics" target="_blank">📉 Analytics</a>
     <a href="/admin/stats" target="_blank">📊 DB Stats (JSON)</a>
@@ -148,6 +154,76 @@ function renderSidebar() {
       </div>
       <div class="cat-items open">
         ${fns.map(f => `<div class="fn-item" data-fn="${f.name}" onclick="selectFn('${f.name}')">${f.name}</div>`).join('')}
+      </div>`;
+    list.appendChild(group);
+  });
+}
+
+// ── Filter functions (fuzzy search) ─────────────────────────────────────────
+let _filterTimer = null;
+
+function filterFunctions() {
+  clearTimeout(_filterTimer);
+  _filterTimer = setTimeout(async () => {
+    const q = document.getElementById('fnSearchInput').value.trim();
+    const status = document.getElementById('searchStatus');
+
+    if (!q) {
+      renderSidebar();
+      status.style.display = 'none';
+      return;
+    }
+
+    try {
+      const r = await fetch(`${API}/admin/data/functions/search?q=${encodeURIComponent(q)}`);
+      const d = await r.json();
+      const results = d.results || [];
+
+      status.style.display = 'block';
+      status.textContent = `${results.length} match${results.length !== 1 ? 'es' : ''} for "${q}"`;
+
+      renderSidebarFiltered(results);
+    } catch(e) {
+      console.error('filterFunctions', e);
+      // Fallback: local filter
+      const ql = q.toLowerCase();
+      const filtered = allFunctions.filter(f =>
+        f.name.toLowerCase().includes(ql) ||
+        (f.description||'').toLowerCase().includes(ql) ||
+        f.category.toLowerCase().includes(ql)
+      );
+      status.style.display = 'block';
+      status.textContent = `${filtered.length} local matches`;
+      renderSidebarFiltered(filtered);
+    }
+  }, 200);
+}
+
+function renderSidebarFiltered(fns) {
+  const byCategory = {};
+  fns.forEach(f => {
+    (byCategory[f.category] = byCategory[f.category] || []).push(f);
+  });
+
+  const list = document.getElementById('fnList');
+  list.innerHTML = '';
+
+  const catEmojis = { price:'📊', momentum:'📈', volatility:'💧', volume:'🔊', composite:'🎯', shortcut:'⚡', metadata:'📋', stats:'📉', screen:'🔍', chart:'📈', ma:'〰️' };
+
+  if (fns.length === 0) {
+    list.innerHTML = '<div style="padding:16px;text-align:center;color:#9ca3af;font-size:12px">No matches found</div>';
+    return;
+  }
+
+  Object.entries(byCategory).sort().forEach(([cat, catFns]) => {
+    const group = document.createElement('div');
+    group.className = 'cat-group';
+    group.innerHTML = `
+      <div class="cat-label" onclick="this.nextElementSibling.classList.toggle('open')">
+        ${catEmojis[cat]||'📦'} ${cat} <span class="fn-count">${catFns.length}</span>
+      </div>
+      <div class="cat-items open">
+        ${catFns.map(f => `<div class="fn-item" data-fn="${f.name}" onclick="selectFn('${f.name}')">${f.name}</div>`).join('')}
       </div>`;
     list.appendChild(group);
   });

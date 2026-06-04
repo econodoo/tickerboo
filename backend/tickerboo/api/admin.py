@@ -58,20 +58,20 @@ async def sync_full_blocking():
 
 @router.get("/admin/sync/status", tags=["admin"])
 async def sync_status():
-    """Current sync status — used by landing page for live stats."""
-    db_stats = await fetch_one(
+    """Get the status of the most recent sync operation + DB summary."""
+    status = await _cafef.get_sync_status()
+
+    # Also grab DB summary
+    row = await fetch_one(
         """SELECT COUNT(DISTINCT symbol) as tickers,
                   COUNT(*) as total_bars,
                   MIN(date) as earliest,
                   MAX(date) as latest
            FROM daily_ohlcv"""
     )
-    last_sync = await fetch_one(
-        "SELECT * FROM data_sync ORDER BY id DESC LIMIT 1"
-    )
     return {
-        "db": dict(db_stats) if db_stats else {},
-        "last_sync": dict(last_sync) if last_sync else None,
+        "sync": status,
+        "db": dict(row) if row else {},
     }
 
 
@@ -89,25 +89,6 @@ async def sync_catchup_blocking():
     """Catchup sync (blocking)."""
     result = await _cafef.sync_catchup()
     return {"status": "completed", "result": result}
-
-
-@router.get("/admin/sync/status", tags=["admin"])
-async def sync_status():
-    """Get the status of the most recent sync operation."""
-    status = await _cafef.get_sync_status()
-
-    # Also grab DB summary
-    row = await fetch_one(
-        """SELECT COUNT(DISTINCT symbol) as tickers,
-                  COUNT(*) as total_bars,
-                  MIN(date) as earliest,
-                  MAX(date) as latest
-           FROM daily_ohlcv"""
-    )
-    return {
-        "sync": status,
-        "db": dict(row) if row else {},
-    }
 
 
 # ── DB stats ─────────────────────────────────────────────────────────────────

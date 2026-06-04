@@ -94,6 +94,38 @@ CREATE INDEX IF NOT EXISTS idx_ic_lookup
     ON indicator_cache(symbol, timeframe, indicator, params_hash, date DESC);
 
 
+-- ── Data file tracking ──────────────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS data_files (
+    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    filename            TEXT    NOT NULL,
+    filepath            TEXT    NOT NULL,
+    file_size           INTEGER DEFAULT 0,
+    file_type           TEXT    DEFAULT 'zip',       -- zip, csv
+    source              TEXT    DEFAULT 'cafef',
+    uploaded_at         TEXT    DEFAULT (datetime('now')),
+    status              TEXT    DEFAULT 'uploaded',   -- uploaded, ingesting, ingested, failed
+    records_total       INTEGER DEFAULT 0,           -- total records found in file
+    records_inserted    INTEGER DEFAULT 0,           -- records actually upserted
+    tickers_count       INTEGER DEFAULT 0,
+    date_range_start    TEXT,
+    date_range_end      TEXT,
+    ingestion_started   TEXT,
+    ingestion_completed TEXT,
+    error_message       TEXT,
+    checksum            TEXT                          -- SHA256 for dedup
+);
+
+
+-- ── App settings (KV store) ────────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS app_settings (
+    key         TEXT PRIMARY KEY,
+    value       TEXT,
+    updated_at  TEXT DEFAULT (datetime('now'))
+);
+
+
 -- ── Function usage analytics ────────────────────────────────────────────────
 
 CREATE TABLE IF NOT EXISTS function_calls (

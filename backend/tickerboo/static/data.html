@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TickerBoo — Data Manager</title>
+<style>
+  :root { --p:#185B35; --a:#22c55e; --t:#111827; --bg:#0f1117; --card:#161922; --border:#1e2230; --dim:#6b7280; --r:10px; }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font:14px/1.5 'Segoe UI',system-ui,sans-serif; background:var(--bg); color:#e5e7eb; }
+
+  /* ── Layout ── */
+  .topbar { display:flex; align-items:center; gap:12px; padding:12px 24px; border-bottom:1px solid var(--border); background:#111318; }
+  .topbar .eyes { font-size:24px; }
+  .topbar h1 { font-size:18px; font-weight:800; color:#fff; }
+  .topbar h1 span { color:var(--a); }
+  .topbar .spacer { flex:1; }
+  .topbar a { font-size:12px; color:var(--dim); text-decoration:none; padding:4px 10px; border:1px solid var(--border); border-radius:6px; }
+  .topbar a:hover { color:#fff; border-color:var(--a); }
+
+  .container { display:grid; grid-template-columns:1fr 380px; gap:0; height:calc(100vh - 49px); }
+  .left { padding:20px 24px; overflow-y:auto; border-right:1px solid var(--border); }
+  .right { padding:20px 24px; overflow-y:auto; }
+
+  /* ── Cards ── */
+  .section { margin-bottom:24px; }
+  .section-title { font-size:13px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:var(--dim); margin-bottom:10px; display:flex; align-items:center; gap:8px; }
+  .section-title .icon { font-size:16px; }
+
+  .card { background:var(--card); border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; margin-bottom:10px; }
+
+  /* ── DB Info grid ── */
+  .db-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(130px, 1fr)); gap:8px; margin-bottom:12px; }
+  .db-stat { background:var(--card); border:1px solid var(--border); border-radius:8px; padding:10px 12px; text-align:center; }
+  .db-stat .num { font-size:22px; font-weight:900; color:var(--a); line-height:1.2; }
+  .db-stat .label { font-size:10px; color:var(--dim); text-transform:uppercase; letter-spacing:.05em; }
+
+  .table-rows { font-size:12px; }
+  .table-rows .row { display:flex; justify-content:space-between; padding:3px 0; border-bottom:1px solid #1a1d27; }
+  .table-rows .row:last-child { border:none; }
+  .table-rows .tbl-name { color:#9ca3af; font-family:monospace; }
+  .table-rows .tbl-count { color:var(--a); font-weight:700; }
+
+  /* ── Upload drop zone ── */
+  .dropzone {
+    border:2px dashed var(--border); border-radius:var(--r);
+    padding:32px 20px; text-align:center; cursor:pointer;
+    transition:border-color .2s, background .2s; margin-bottom:12px;
+  }
+  .dropzone:hover, .dropzone.dragover { border-color:var(--a); background:rgba(34,197,94,.05); }
+  .dropzone .dz-icon { font-size:32px; margin-bottom:8px; }
+  .dropzone .dz-text { font-size:13px; color:var(--dim); }
+  .dropzone .dz-text strong { color:#fff; }
+  .dropzone input { display:none; }
+
+  /* ── File list ── */
+  .file-item {
+    background:var(--card); border:1px solid var(--border); border-radius:8px;
+    padding:10px 14px; margin-bottom:6px; display:flex; align-items:center; gap:10px;
+  }
+  .file-item .fi-icon { font-size:20px; flex-shrink:0; }
+  .file-item .fi-body { flex:1; min-width:0; }
+  .file-item .fi-name { font-size:13px; color:#fff; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .file-item .fi-meta { font-size:11px; color:var(--dim); }
+  .file-item .fi-actions { display:flex; gap:4px; flex-shrink:0; }
+
+  .badge { font-size:10px; padding:2px 7px; border-radius:10px; font-weight:700; text-transform:uppercase; }
+  .badge-green { background:#064e3b; color:#6ee7b7; }
+  .badge-yellow { background:#78350f; color:#fcd34d; }
+  .badge-red { background:#7f1d1d; color:#fca5a5; }
+  .badge-gray { background:#1f2937; color:#9ca3af; }
+
+  /* ── Buttons ── */
+  .btn { padding:5px 12px; border:none; border-radius:6px; font-weight:700; font-size:11px; cursor:pointer; transition:all .15s; }
+  .btn-sm { padding:3px 8px; font-size:10px; }
+  .btn-primary { background:var(--p); color:#fff; }
+  .btn-primary:hover { background:#0d3d22; }
+  .btn-danger { background:#7f1d1d; color:#fca5a5; }
+  .btn-danger:hover { background:#991b1b; }
+  .btn-ghost { background:transparent; color:var(--dim); border:1px solid var(--border); }
+  .btn-ghost:hover { color:#fff; border-color:var(--a); }
+  .btn:disabled { opacity:.4; cursor:not-allowed; }
+
+  /* ── Progress bar ── */
+  .progress-wrap { margin:10px 0; }
+  .progress-bar { height:6px; background:#1f2937; border-radius:3px; overflow:hidden; }
+  .progress-fill { height:100%; background:var(--a); border-radius:3px; transition:width .3s; }
+  .progress-text { font-size:11px; color:var(--dim); margin-top:4px; display:flex; justify-content:space-between; }
+
+  /* ── Settings form ── */
+  .setting-row { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
+  .setting-row label { font-size:12px; color:var(--dim); min-width:100px; flex-shrink:0; }
+  .setting-row input { flex:1; padding:6px 10px; background:#1a1d27; border:1px solid var(--border); border-radius:6px; color:#fff; font-size:12px; font-family:monospace; }
+  .setting-row input:focus { outline:none; border-color:var(--a); }
+
+  /* ── Indicator search ── */
+  .search-box { position:relative; margin-bottom:12px; }
+  .search-box input {
+    width:100%; padding:8px 12px 8px 32px; background:#1a1d27; border:1px solid var(--border);
+    border-radius:8px; color:#fff; font-size:13px;
+  }
+  .search-box input:focus { outline:none; border-color:var(--a); box-shadow:0 0 0 2px rgba(34,197,94,.15); }
+  .search-box input::placeholder { color:#4b5563; }
+  .search-box .search-icon { position:absolute; left:10px; top:50%; transform:translateY(-50%); font-size:14px; color:#4b5563; pointer-events:none; }
+  .search-hint { font-size:11px; color:#4b5563; margin-top:4px; }
+
+  .fn-results { max-height:calc(100vh - 340px); overflow-y:auto; }
+  .fn-result-item {
+    padding:8px 12px; margin-bottom:4px; background:var(--card); border:1px solid var(--border);
+    border-radius:6px; cursor:pointer; transition:border-color .15s;
+  }
+  .fn-result-item:hover { border-color:var(--a); }
+  .fn-result-item .fn-name { font-size:13px; font-weight:700; color:var(--a); font-family:monospace; }
+  .fn-result-item .fn-cat { font-size:10px; color:var(--dim); text-transform:uppercase; margin-left:6px; }
+  .fn-result-item .fn-desc { font-size:11px; color:#9ca3af; margin-top:2px; }
+  .fn-result-item .fn-formula { font-size:11px; color:#4b5563; font-family:monospace; margin-top:2px; }
+
+  .fn-count-badge { font-size:11px; color:var(--a); font-weight:700; }
+
+  /* ── Sync history ── */
+  .sync-list { font-size:12px; }
+  .sync-item { display:grid; grid-template-columns:70px 50px 1fr 60px; gap:6px; padding:4px 0; border-bottom:1px solid #1a1d27; align-items:center; }
+  .sync-item:last-child { border:none; }
+
+  /* ── Toast ── */
+  .toast { position:fixed; bottom:20px; right:20px; padding:10px 16px; border-radius:8px; font-size:13px; font-weight:600; color:#fff; z-index:999; animation:slideUp .3s; }
+  .toast-ok { background:#064e3b; border:1px solid var(--a); }
+  .toast-err { background:#7f1d1d; border:1px solid #ef4444; }
+  @keyframes slideUp { from{transform:translateY(20px);opacity:0} to{transform:translateY(0);opacity:1} }
+
+  /* ── Responsive ── */
+  @media (max-width:900px) {
+    .container { grid-template-columns:1fr; }
+    .right { border-top:1px solid var(--border); }
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <span class="eyes">🫣</span>
+  <h1>Ticker<span>Boo</span> <span style="font-weight:400;font-size:13px;color:var(--dim)">Data Manager</span></h1>
+  <div class="spacer"></div>
+  <a href="/">Home</a>
+  <a href="/admin/playground">Playground</a>
+  <a href="/admin/dashboard">Dashboard</a>
+  <a href="/docs">API Docs</a>
+</div>
+
+<div class="container">
+
+  <!-- ═══════════ LEFT: Data files + DB info ═══════════ -->
+  <div class="left">
+
+    <!-- DB Overview -->
+    <div class="section">
+      <div class="section-title"><span class="icon">📊</span> Database Overview</div>
+      <div class="db-grid" id="dbGrid">
+        <div class="db-stat"><div class="num" id="dbSize">—</div><div class="label">DB Size (MB)</div></div>
+        <div class="db-stat"><div class="num" id="dbTickers">—</div><div class="label">Tickers</div></div>
+        <div class="db-stat"><div class="num" id="dbBars">—</div><div class="label">Daily Bars</div></div>
+        <div class="db-stat"><div class="num" id="dbRange">—</div><div class="label">Date Range</div></div>
+        <div class="db-stat"><div class="num" id="dbUploads">—</div><div class="label">Uploads (MB)</div></div>
+        <div class="db-stat"><div class="num" id="dbFiles">—</div><div class="label">Data Files</div></div>
+      </div>
+      <div class="card">
+        <div class="section-title" style="margin-bottom:6px"><span class="icon">🗄️</span> Table Sizes</div>
+        <div class="table-rows" id="tableRows">Loading...</div>
+      </div>
+    </div>
+
+    <!-- Upload Zone -->
+    <div class="section">
+      <div class="section-title"><span class="icon">📥</span> Upload Data File</div>
+      <div class="dropzone" id="dropzone" onclick="document.getElementById('fileInput').click()">
+        <div class="dz-icon">📦</div>
+        <div class="dz-text">
+          <strong>Drop CafeF ZIP here</strong> or click to browse<br>
+          <span style="font-size:11px">AmiBroker format (.zip or .csv) — ingested in 5K-record chunks</span>
+        </div>
+        <input type="file" id="fileInput" accept=".zip,.csv,.txt">
+      </div>
+    </div>
+
+    <!-- Active Ingestion -->
+    <div class="section" id="ingestionPanel" style="display:none">
+      <div class="section-title"><span class="icon">⚙️</span> Active Ingestion</div>
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+          <span style="font-weight:700;font-size:13px;color:#fff" id="ingFileName">—</span>
+          <span class="badge badge-yellow" id="ingStatus">—</span>
+        </div>
+        <div class="progress-wrap">
+          <div class="progress-bar"><div class="progress-fill" id="ingBar" style="width:0%"></div></div>
+          <div class="progress-text">
+            <span id="ingPhase">—</span>
+            <span id="ingElapsed">—</span>
+          </div>
+        </div>
+        <div style="font-size:11px;color:var(--dim);display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-top:6px">
+          <span>Parsed: <b id="ingParsed" style="color:var(--a)">0</b></span>
+          <span>Upserted: <b id="ingUpserted" style="color:var(--a)">0</b></span>
+          <span>Tickers: <b id="ingTickers" style="color:var(--a)">0</b></span>
+          <span>Batch: <b id="ingBatch" style="color:var(--a)">0/0</b></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Data Files list -->
+    <div class="section">
+      <div class="section-title"><span class="icon">📁</span> Data Files <span class="fn-count-badge" id="fileCount">0</span></div>
+      <div id="fileList">Loading...</div>
+    </div>
+
+    <!-- Recent Syncs -->
+    <div class="section">
+      <div class="section-title"><span class="icon">🔄</span> Recent Sync History</div>
+      <div class="card">
+        <div class="sync-list" id="syncHistory">Loading...</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ═══════════ RIGHT: Settings + Indicator Search ═══════════ -->
+  <div class="right">
+
+    <!-- Data Source Settings -->
+    <div class="section">
+      <div class="section-title"><span class="icon">⚙️</span> Data Source Settings</div>
+      <div class="card">
+        <div class="setting-row">
+          <label>CafeF URL</label>
+          <input id="cfUrl" placeholder="https://cafef1.mediacdn.vn/data/ami_data/">
+        </div>
+        <div style="display:flex;gap:6px;margin-top:8px">
+          <button class="btn btn-primary" onclick="saveSettings()">💾 Save</button>
+          <button class="btn btn-ghost" onclick="loadSettings()">↻ Reset</button>
+        </div>
+        <div style="font-size:11px;color:#4b5563;margin-top:6px">
+          Prefix used to construct download URLs. Change if CafeF moves their CDN.
+        </div>
+      </div>
+    </div>
+
+    <!-- Quick actions -->
+    <div class="section">
+      <div class="section-title"><span class="icon">⚡</span> Quick Actions</div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px">
+        <button class="btn btn-ghost" onclick="seedMock()">🌱 Seed Mock Data</button>
+        <button class="btn btn-ghost" onclick="refreshAll()">↻ Refresh All</button>
+        <button class="btn btn-danger btn-sm" onclick="purgeData('mock')" title="Delete mock data only">🗑 Purge Mock</button>
+        <button class="btn btn-danger btn-sm" onclick="purgeData('all')" title="Delete ALL OHLCV data">🗑 Purge All</button>
+      </div>
+    </div>
+
+    <!-- Indicator Search -->
+    <div class="section">
+      <div class="section-title"><span class="icon">🔍</span> Function Search <span class="fn-count-badge" id="fnTotal">0</span></div>
+      <div class="search-box">
+        <span class="search-icon">🔎</span>
+        <input id="fnSearch" placeholder="ichi, boll, macd, trend, snap…" oninput="searchFunctions()" autocomplete="off">
+      </div>
+      <div class="search-hint" id="searchHint">Type to search by name, alias, or keyword. Multi-word supported.</div>
+      <div class="fn-results" id="fnResults"></div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+const API = '';
+
+// ══════════════════════════════════════════════════════════════════════════
+// DB Info
+// ══════════════════════════════════════════════════════════════════════════
+async function loadDbInfo() {
+  try {
+    const r = await fetch(`${API}/admin/data/db-info`);
+    const d = await r.json();
+    document.getElementById('dbSize').textContent = d.total_size_mb || '0';
+    document.getElementById('dbUploads').textContent = d.uploads_size_mb || '0';
+
+    const o = d.ohlcv_summary || {};
+    document.getElementById('dbTickers').textContent = (o.tickers || 0).toLocaleString();
+    document.getElementById('dbBars').textContent = (o.bars || 0).toLocaleString();
+    document.getElementById('dbRange').textContent = o.earliest && o.latest
+      ? `${o.earliest.slice(2)} → ${o.latest.slice(2)}` : '—';
+
+    document.getElementById('dbFiles').textContent = (d.tables?.data_files || 0);
+
+    // Table sizes
+    const tables = d.tables || {};
+    const rows = Object.entries(tables)
+      .sort((a,b) => b[1] - a[1])
+      .map(([name, cnt]) => `<div class="row"><span class="tbl-name">${name}</span><span class="tbl-count">${cnt.toLocaleString()}</span></div>`)
+      .join('');
+    document.getElementById('tableRows').innerHTML = rows || '<span style="color:var(--dim)">No tables</span>';
+  } catch(e) { console.error('loadDbInfo', e); }
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// File Upload
+// ══════════════════════════════════════════════════════════════════════════
+const dropzone = document.getElementById('dropzone');
+const fileInput = document.getElementById('fileInput');
+
+['dragenter','dragover'].forEach(e => dropzone.addEventListener(e, ev => { ev.preventDefault(); dropzone.classList.add('dragover'); }));
+['dragleave','drop'].forEach(e => dropzone.addEventListener(e, ev => { ev.preventDefault(); dropzone.classList.remove('dragover'); }));
+
+dropzone.addEventListener('drop', ev => {
+  const files = ev.dataTransfer.files;
+  if (files.length) uploadFile(files[0]);
+});
+
+fileInput.addEventListener('change', () => {
+  if (fileInput.files.length) uploadFile(fileInput.files[0]);
+  fileInput.value = '';
+});
+
+async function uploadFile(file) {
+  const dz = document.getElementById('dropzone');
+  const origHTML = dz.innerHTML;
+  dz.innerHTML = `<div class="dz-icon">⏳</div><div class="dz-text">Uploading <strong>${file.name}</strong> (${(file.size/1024/1024).toFixed(1)} MB)...</div>`;
+
+  const form = new FormData();
+  form.append('file', file);
+
+  try {
+    const r = await fetch(`${API}/admin/data/ingest-and-upload`, { method:'POST', body:form });
+    const d = await r.json();
+
+    if (d.status === 'started') {
+      toast(`Ingestion started for ${file.name}`, 'ok');
+      pollIngestion();
+    } else if (d.status === 'queued') {
+      toast(`File uploaded (id=${d.file_id}). ${d.message}`, 'ok');
+    } else {
+      toast(d.message || 'Uploaded', 'ok');
+    }
+
+    loadFiles();
+    loadDbInfo();
+  } catch(e) {
+    toast('Upload failed: ' + e.message, 'err');
+  }
+  dz.innerHTML = origHTML;
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// File List
+// ══════════════════════════════════════════════════════════════════════════
+async function loadFiles() {
+  try {
+    const r = await fetch(`${API}/admin/data/files`);
+    const d = await r.json();
+    const files = d.files || [];
+    document.getElementById('fileCount').textContent = files.length;
+
+    if (!files.length) {
+      document.getElementById('fileList').innerHTML = '<div style="color:var(--dim);font-size:13px;text-align:center;padding:16px">No data files yet. Drop a CafeF ZIP above.</div>';
+      return;
+    }
+
+    document.getElementById('fileList').innerHTML = files.map(f => {
+      const sizeMB = (f.file_size / 1024 / 1024).toFixed(1);
+      const statusBadge = {
+        'uploaded': '<span class="badge badge-gray">uploaded</span>',
+        'ingesting': '<span class="badge badge-yellow">ingesting</span>',
+        'ingested': '<span class="badge badge-green">ingested</span>',
+        'failed': '<span class="badge badge-red">failed</span>',
+      }[f.status] || `<span class="badge badge-gray">${f.status}</span>`;
+
+      const icon = f.file_type === 'zip' ? '📦' : '📄';
+      const dateInfo = f.date_range_start && f.date_range_end
+        ? `${f.date_range_start} → ${f.date_range_end}` : '';
+      const recordInfo = f.records_inserted
+        ? `${f.records_inserted.toLocaleString()} records · ${f.tickers_count} tickers` : '';
+
+      return `
+        <div class="file-item">
+          <span class="fi-icon">${icon}</span>
+          <div class="fi-body">
+            <div class="fi-name">${f.filename}</div>
+            <div class="fi-meta">${sizeMB} MB · ${f.uploaded_at?.slice(0,16) || '?'} ${dateInfo ? '· '+dateInfo : ''}</div>
+            ${recordInfo ? `<div class="fi-meta">${recordInfo}</div>` : ''}
+            ${f.error_message ? `<div class="fi-meta" style="color:#fca5a5">⚠ ${f.error_message}</div>` : ''}
+          </div>
+          <div class="fi-actions">
+            ${statusBadge}
+            ${f.status !== 'ingesting' ? `<button class="btn btn-primary btn-sm" onclick="ingestFile(${f.id})" title="Re-ingest">▶</button>` : ''}
+            <button class="btn btn-danger btn-sm" onclick="deleteFile(${f.id})" title="Delete">✕</button>
+          </div>
+        </div>`;
+    }).join('');
+  } catch(e) { console.error('loadFiles', e); }
+}
+
+async function ingestFile(id) {
+  try {
+    const r = await fetch(`${API}/admin/data/ingest/${id}`, { method:'POST' });
+    const d = await r.json();
+    if (d.status === 'started') {
+      toast('Ingestion started', 'ok');
+      pollIngestion();
+    } else {
+      toast(d.detail || d.message || 'Error', 'err');
+    }
+  } catch(e) { toast('Failed: '+e.message, 'err'); }
+}
+
+async function deleteFile(id) {
+  if (!confirm('Delete this data file?')) return;
+  try {
+    await fetch(`${API}/admin/data/files/${id}`, { method:'DELETE' });
+    toast('File deleted', 'ok');
+    loadFiles();
+    loadDbInfo();
+  } catch(e) { toast('Delete failed', 'err'); }
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// Ingestion Progress Polling
+// ══════════════════════════════════════════════════════════════════════════
+let _pollTimer = null;
+
+async function pollIngestion() {
+  const panel = document.getElementById('ingestionPanel');
+  try {
+    const r = await fetch(`${API}/admin/data/ingest/status`);
+    const d = await r.json();
+
+    if (!d.is_busy && !d.active) {
+      panel.style.display = 'none';
+      if (_pollTimer) { clearInterval(_pollTimer); _pollTimer = null; }
+      loadFiles();
+      loadDbInfo();
+      return;
+    }
+
+    const a = d.active;
+    if (!a) return;
+
+    panel.style.display = 'block';
+    document.getElementById('ingFileName').textContent = a.filename;
+    document.getElementById('ingStatus').textContent = a.status;
+    document.getElementById('ingStatus').className = 'badge ' + ({
+      parsing:'badge-yellow', ingesting:'badge-yellow', completed:'badge-green', failed:'badge-red'
+    }[a.status] || 'badge-gray');
+
+    const pct = a.batches_total > 0 ? Math.round(a.batches_done / a.batches_total * 100) : 0;
+    document.getElementById('ingBar').style.width = (a.status === 'completed' ? 100 : pct) + '%';
+    document.getElementById('ingPhase').textContent = a.phase;
+    document.getElementById('ingElapsed').textContent = a.elapsed_sec + 's';
+    document.getElementById('ingParsed').textContent = a.records_parsed.toLocaleString();
+    document.getElementById('ingUpserted').textContent = a.records_upserted.toLocaleString();
+    document.getElementById('ingTickers').textContent = a.tickers_found.toLocaleString();
+    document.getElementById('ingBatch').textContent = `${a.batches_done}/${a.batches_total}`;
+
+    if (a.status === 'completed' || a.status === 'failed') {
+      if (_pollTimer) { clearInterval(_pollTimer); _pollTimer = null; }
+      loadFiles();
+      loadDbInfo();
+      if (a.status === 'completed') toast(`Ingested ${a.records_upserted.toLocaleString()} records`, 'ok');
+      if (a.status === 'failed') toast('Ingestion failed: ' + a.error, 'err');
+    } else if (!_pollTimer) {
+      _pollTimer = setInterval(pollIngestion, 1500);
+    }
+  } catch(e) { console.error('pollIngestion', e); }
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// Settings
+// ══════════════════════════════════════════════════════════════════════════
+async function loadSettings() {
+  try {
+    const r = await fetch(`${API}/admin/data/settings`);
+    const d = await r.json();
+    document.getElementById('cfUrl').value = d.cafef_url_prefix || '';
+  } catch(e) { console.error('loadSettings', e); }
+}
+
+async function saveSettings() {
+  const url = document.getElementById('cfUrl').value.trim();
+  try {
+    const r = await fetch(`${API}/admin/data/settings`, {
+      method:'PUT', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ cafef_url_prefix: url }),
+    });
+    const d = await r.json();
+    toast('Settings saved', 'ok');
+  } catch(e) { toast('Save failed', 'err'); }
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// Quick Actions
+// ══════════════════════════════════════════════════════════════════════════
+async function seedMock() {
+  toast('Seeding mock data...', 'ok');
+  try {
+    const r = await fetch(`${API}/admin/seed`, { method:'POST' });
+    const d = await r.json();
+    toast(`Seeded: ${d.result?.records || 0} records`, 'ok');
+    loadDbInfo();
+  } catch(e) { toast('Seed failed', 'err'); }
+}
+
+async function purgeData(source) {
+  const label = source === 'all' ? 'ALL OHLCV data' : `${source} data`;
+  if (!confirm(`Delete ${label}? This cannot be undone.`)) return;
+  try {
+    await fetch(`${API}/admin/data/purge-ohlcv?source=${source}`, { method:'POST' });
+    toast(`Purged ${label}`, 'ok');
+    loadDbInfo();
+  } catch(e) { toast('Purge failed', 'err'); }
+}
+
+async function refreshAll() {
+  loadDbInfo();
+  loadFiles();
+  loadSettings();
+  loadSyncHistory();
+  pollIngestion();
+  toast('Refreshed', 'ok');
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// Sync History
+// ══════════════════════════════════════════════════════════════════════════
+async function loadSyncHistory() {
+  try {
+    const r = await fetch(`${API}/admin/stats`);
+    const d = await r.json();
+    const syncs = d.recent_syncs || [];
+    if (!syncs.length) {
+      document.getElementById('syncHistory').innerHTML = '<span style="color:var(--dim)">No sync history</span>';
+      return;
+    }
+    document.getElementById('syncHistory').innerHTML = syncs.map(s => {
+      const statusColor = { completed:'var(--a)', failed:'#ef4444', running:'#f59e0b' }[s.status] || 'var(--dim)';
+      return `<div class="sync-item">
+        <span>${s.sync_type || '?'}</span>
+        <span style="color:${statusColor};font-weight:700">${s.status}</span>
+        <span>${(s.records_count||0).toLocaleString()} records</span>
+        <span style="color:var(--dim)">${s.started_at?.slice(5,16)||'?'}</span>
+      </div>`;
+    }).join('');
+  } catch(e) { console.error('loadSyncHistory', e); }
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// Function / Indicator Search
+// ══════════════════════════════════════════════════════════════════════════
+let _searchTimer = null;
+let _allFunctions = [];
+
+async function loadAllFunctions() {
+  try {
+    const r = await fetch(`${API}/functions`);
+    const d = await r.json();
+    _allFunctions = d.functions || [];
+    document.getElementById('fnTotal').textContent = _allFunctions.length;
+    renderFunctions(_allFunctions);
+  } catch(e) { console.error('loadAllFunctions', e); }
+}
+
+function searchFunctions() {
+  clearTimeout(_searchTimer);
+  _searchTimer = setTimeout(async () => {
+    const q = document.getElementById('fnSearch').value.trim();
+    if (!q) {
+      renderFunctions(_allFunctions);
+      document.getElementById('searchHint').textContent = 'Type to search by name, alias, or keyword. Multi-word supported.';
+      return;
+    }
+    try {
+      const r = await fetch(`${API}/admin/data/functions/search?q=${encodeURIComponent(q)}`);
+      const d = await r.json();
+      renderFunctions(d.results || []);
+      document.getElementById('searchHint').textContent = `${d.count} match${d.count!==1?'es':''} for "${q}"`;
+    } catch(e) { console.error('searchFunctions', e); }
+  }, 200);
+}
+
+function renderFunctions(fns) {
+  const container = document.getElementById('fnResults');
+  if (!fns.length) {
+    container.innerHTML = '<div style="color:var(--dim);font-size:13px;text-align:center;padding:20px">No matches</div>';
+    return;
+  }
+
+  // Group by category
+  const byCategory = {};
+  fns.forEach(f => {
+    (byCategory[f.category] = byCategory[f.category] || []).push(f);
+  });
+
+  const catEmojis = { price:'📊', momentum:'📈', volatility:'💧', volume:'🔊', composite:'🎯', shortcut:'⚡', metadata:'📋', screen:'🔍', chart:'📈', ma:'〰️' };
+
+  container.innerHTML = Object.entries(byCategory).sort().map(([cat, catFns]) => `
+    <div style="margin-bottom:8px">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--dim);padding:4px 0;display:flex;align-items:center;gap:4px">
+        ${catEmojis[cat]||'📦'} ${cat} <span style="color:var(--a);font-size:10px">(${catFns.length})</span>
+      </div>
+      ${catFns.map(f => `
+        <div class="fn-result-item" onclick="window.open('/admin/playground#${f.name}','_blank')">
+          <span class="fn-name">TB.${f.name}</span>
+          <span class="fn-cat">${f.category}</span>
+          ${f.tier==='advanced'?'<span class="badge badge-yellow" style="margin-left:4px">adv</span>':''}
+          <div class="fn-desc">${f.description || ''}</div>
+          <div class="fn-formula">${f.formula || ''}</div>
+        </div>
+      `).join('')}
+    </div>
+  `).join('');
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// Toast
+// ══════════════════════════════════════════════════════════════════════════
+function toast(msg, type) {
+  const el = document.createElement('div');
+  el.className = 'toast toast-' + type;
+  el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 4000);
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// Init
+// ══════════════════════════════════════════════════════════════════════════
+loadDbInfo();
+loadFiles();
+loadSettings();
+loadSyncHistory();
+loadAllFunctions();
+pollIngestion();
+</script>
+</body>
+</html>
